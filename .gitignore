@@ -1,0 +1,17 @@
+*.h5
+*.out
+*.ipynb
+expts/
+wandb/
+data_process/.ipynb_checkpoints/*
+utils/.ipynb_checkpoints/*
+*.png
+*.ipynb_checkpoints/
+*.tar
+*.err
+*.pyc
+*.nc
+*.eps
+ray_results
+*.pdf
+*.svg
