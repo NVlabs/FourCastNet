@@ -29,11 +29,8 @@ COPY copernicus /opt/ERA5_wind/copernicus
 COPY docker /opt/ERA5_wind/docker
 COPY networks /opt/ERA5_wind/networks
 COPY utils /opt/ERA5_wind/utils
-COPY plotting /opt/ERA5_wind/plotting
-COPY mpu /opt/ERA5_wind/mpu
 COPY *.py /opt/ERA5_wind/
 COPY *.sh /opt/ERA5_wind/
-COPY perf_tests /opt/perf_tests
 
 # create dummy git image
 RUN cd /opt/ERA5_wind && git init

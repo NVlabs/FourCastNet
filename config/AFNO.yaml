@@ -33,10 +33,10 @@ full_field: &FULL_FIELD
   in_channels: [0,1]
   out_channels: [0,1] #must be same as in_channels if prediction_type == 'iterative'
   normalization: 'zscore' #options zscore (minmax not supported) 
-  train_data_path: '/pscratch/sd/j/jpathak/wind/train'
-  valid_data_path: '/pscratch/sd/j/jpathak/wind/test'
+  train_data_path: '/home/oliverwm'
+  valid_data_path: '/home/oliverwm'
   inf_data_path: '/pscratch/sd/j/jpathak/wind/out_of_sample' # test set path for inference
-  exp_dir: '/pscratch/sd/j/jpathak/ERA5_expts_gtc/wind'
+  exp_dir: '/home/oliverwm/output'
   time_means_path:   '/pscratch/sd/j/jpathak/wind/time_means.npy'
   global_means_path: '/pscratch/sd/j/jpathak/wind/global_means.npy'
   global_stds_path:  '/pscratch/sd/j/jpathak/wind/global_stds.npy'

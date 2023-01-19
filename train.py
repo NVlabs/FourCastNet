@@ -588,7 +588,7 @@ if __name__ == '__main__':
   params['entity'] = "flowgan"
   if world_rank==0:
     logging_utils.log_to_file(logger_name=None, log_filename=os.path.join(expDir, 'out.log'))
-    logging_utils.log_versions()
+    # logging_utils.log_versions()
     params.log()
 
   params['log_to_wandb'] = (world_rank==0) and params['log_to_wandb']
