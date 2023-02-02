@@ -26,7 +26,5 @@ def log_versions():
   import subprocess
 
   logging.info('--------------- Versions ---------------')
-  logging.info('git branch: ' + str(subprocess.check_output(['git', 'branch']).strip()))
-  logging.info('git hash: ' + str(subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()))
   logging.info('Torch: ' + str(torch.__version__))
   logging.info('----------------------------------------')
