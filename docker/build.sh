@@ -1,18 +1,12 @@
 #!/bin/bash
 
-repo=gitlab-master.nvidia.com:5005/tkurth/era5_wind
-#tag=latest
-#tag=debug
-tag=jaideep_legacy_dataloader
+repo=gitlab-master.nvidia.com:5005/jpathak/fourcastnet
+tag=latest
 
 cd ../
 
 # build
-docker build -t ${repo}:${tag} -f docker/Dockerfile .
+docker build --platform=linux/amd64 -t ${repo}:${tag} -f docker/Dockerfile .
 
 # push
 docker push ${repo}:${tag}
-
-# retag and repush
-#docker tag ${repo}:${tag} thorstenkurth/era5-wind:${tag}
-#docker push thorstenkurth/era5-wind:${tag}
