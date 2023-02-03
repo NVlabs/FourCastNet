@@ -15,3 +15,11 @@ utils/.ipynb_checkpoints/*
 ray_results
 *.pdf
 *.svg
+*.grib
+*.inv
+*.pl
+*.grb
+*.gif
+*inv
+*.ckpt
+*.npy

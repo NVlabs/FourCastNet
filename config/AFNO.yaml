@@ -129,3 +129,17 @@ precip: &precip
   model_wind_path: '/pscratch/sd/s/shas1693/results/era5_wind/afno_backbone_finetune/0/training_checkpoints/best_ckpt.tar'
   precip_eps: !!float 1e-5
 
+afno_backbone_26ch: &backbone_26ch 
+  <<: *backbone
+  log_to_wandb: !!bool True
+  in_channels: [0, 1 ,2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+  out_channels: [0, 1 ,2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+  orography: !!bool False
+  orography_path: None 
+  inf_data_path:   './h5files/init.h5'
+  checkpoint_path: './weights/backbone_v0.1.ckpt'
+  forecast_dir: './forecasts/'
+  global_means_path: './weights/global_means.npy'
+  global_stds_path: './weights/global_stds.npy'
+  inference_file_tag: ''
+  prediction_length: 30
