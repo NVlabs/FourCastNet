@@ -1,12 +1,5 @@
 #!/bin/bash
 
-#obtain perlscripts for downloading grib files from NCEP
-if [ ! -d ${PWD}/perlscripts ]; then
-    echo "perlscripts not found. Downloading..."
-    wget ftp://ftp.cpc.ncep.noaa.gov/wd51we/fast_downloading_grib/get_inv.pl -P ./perlscripts/
-    wget ftp://ftp.cpc.ncep.noaa.gov/wd51we/fast_downloading_grib/get_grib.pl -P ./perlscripts/
-fi
-
 #get YEAR, MONTH, DAY, and FORECAST_HOUR from command line
 YEAR=$1
 MONTH=$2
