@@ -74,8 +74,6 @@ def autoregressive_inference(params, ic):
     else:
       raise Exception('Not implemented')
 
-
-
     model.zero_grad()
     checkpoint_file  = params['checkpoint_path']
     checkpoint = torch.load(checkpoint_file)
@@ -141,31 +139,14 @@ if __name__ == '__main__':
     parser.add_argument("--yaml_config", default='./config/AFNO.yaml', type=str)
     parser.add_argument("--config", default='full_field', type=str)
     parser.add_argument("--enable_amp", action='store_true')
-    parser.add_argument("--epsilon_factor", default = 0, type = float)
     parser.add_argument("--override_dir", default = 'None', type = str)
     parser.add_argument("--checkpoint", default = 'None', type = str)
     
 
     args = parser.parse_args()
 
+
     params = YParams(os.path.abspath(args.yaml_config), args.config)
-    params['epsilon_factor'] = args.epsilon_factor
-
-    params['world_size'] = 1
-    if 'WORLD_SIZE' in os.environ:
-      params['world_size'] = int(os.environ['WORLD_SIZE'])
-
-    world_rank = 0
-    if params['world_size'] > 1:
-      torch.cuda.set_device(args.local_rank)
-      dist.init_process_group(backend='nccl',
-                              init_method='env://')
-      args.gpu = args.local_rank
-      world_rank = dist.get_rank()
-      params['global_batch_size'] = params.batch_size
-      params['batch_size'] = int(params.batch_size//params['world_size'])
-
-    torch.backends.cudnn.benchmark = True
 
     # Set up directory
     if args.override_dir =='None':
@@ -173,28 +154,21 @@ if __name__ == '__main__':
     else:
       expDir = args.override_dir
 
-    if  world_rank==0:
-      if not os.path.isdir(expDir):
-        os.makedirs(expDir)
-        os.makedirs(os.path.join(expDir, 'training_checkpoints/'))
+    if not os.path.isdir(expDir):
+      os.makedirs(expDir)
+      os.makedirs(os.path.join(expDir, 'training_checkpoints/'))
 
     args.resuming = False
 
     params['resuming'] = args.resuming
-    params['local_rank'] = args.local_rank
     params['enable_amp'] = args.enable_amp
 
     # this will be the wandb name
     params['name'] = args.config + '_' + str(args.run_num)
     params['group'] = args.config
-    if world_rank==0:
-      logging_utils.log_to_file(logger_name=None, log_filename=os.path.join(expDir, 'inference_out.log'))
-      logging_utils.log_versions()
-      params.log()
-
-    params['log_to_wandb'] = (world_rank==0) and params['log_to_wandb']
-    params['log_to_screen'] = (world_rank==0) and params['log_to_screen']
-
+    logging_utils.log_to_file(logger_name=None, log_filename=os.path.join(expDir, 'inference_out.log'))
+    logging_utils.log_versions()
+    params.log()
 
     n_ics = 1
 
@@ -228,15 +202,45 @@ if __name__ == '__main__':
     seq_pred *= stds[:,0:n_out_channels]
     seq_pred += means[:,0:n_out_channels]
 
+    metadata = json.load(open('./data.json', 'r'))
+    channel_short_names = metadata['coords']['channel']
+    channel_descriptions = metadata['channel_description']
+    logging.info("storing forecasts for the following parameters: {}".format(channel_short_names))
+    for i in range(len(channel_short_names)):
+      print("{} ---- {}".format(i, channel_descriptions[i]))
 
-    #save predictions and loss
+    lat = np.arange(-90,90,0.25)
+    lat = lat[::-1]
+    lon = np.arange(0,360,0.25) 
+
+    #save predictions to netcdf
     if params.log_to_screen:
-      logging.info("Saving files at {}".format(os.path.join(params['forecast_dir'], 'autoregressive_predictions' + autoregressive_inference_filetag + '.h5')))
-    with h5py.File(os.path.join(params['forecast_dir'], 'autoregressive_predictions'+ autoregressive_inference_filetag +'.h5'), 'a') as f:
-      try:
-        f.create_dataset("predicted", data = seq_pred, shape = (n_ics, prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
-      except:
-        del f["predicted"]
-        f.create_dataset("predicted", data = seq_pred, shape = (n_ics, prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
-        f["predicted"][...]= seq_pred
+      logging.info("Saving files at {}".format(os.path.join(params['forecast_dir'], 'autoregressive_predictions' + autoregressive_inference_filetag + '.nc')))
+      f = DS(os.path.join(params['forecast_dir'], 'autoregressive_predictions' + autoregressive_inference_filetag + '.nc'), 'w', format='NETCDF4')
+      f.createDimension('initial_condition', n_ics)
+      f.createDimension('time', prediction_length)
+      f.createDimension('channel', n_out_channels)
+      f.createDimension('longitude', img_shape_y)
+      f.createDimension('latitude', img_shape_x)
+      
+      #write metadata to header
+      f.setncattr('channel_short_names', channel_short_names)
+      f.setncattr('channel_descriptions', channel_descriptions)
+
+      #write data to file
+      f.createVariable('initial_condition', 'i4', ('initial_condition',))
+      f.createVariable('time', 'i4', ('time',))
+      f.createVariable('channel', 'i4', ('channel',))
+      f.createVariable('longitude', 'f4', ('longitude',))
+      f.createVariable('latitude', 'f4', ('latitude',))
+      f.createVariable('predicted', 'f4', ('initial_condition', 'time', 'channel', 'latitude', 'longitude',))
+
+      f.variables['initial_condition'][:] = np.arange(n_ics)
+      f.variables['time'][:] = np.arange(prediction_length)
+      f.variables['channel'][:] = np.arange(n_out_channels)
+      f.variables['longitude'][:] = lon
+      f.variables['latitude'][:] = lat
+      f.variables['predicted'][:] = seq_pred
+      f.close()
+
     

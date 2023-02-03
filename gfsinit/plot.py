@@ -9,6 +9,11 @@ import xarray as xr
 import datetime
 from cartopy import crs as ccrs
 from tqdm import tqdm
+import json
+from netCDF4 import Dataset as DS
+
+f = DS('./forecasts/autoregressive_predictions.nc', 'r')
+print(f)
 
 def make_gif(frame_folder, gif_path, gif_name):
     frames = [Image.open(image) for image in sorted(glob.glob(f"{frame_folder}/*.png"))]
@@ -38,7 +43,7 @@ def plot_field(field, scale, units, cmap, pred_title, savepath):
 def make_frames_speed(uch, vch, scale, cmap, means, stds, date, field_name, savepath):
     if not os.path.isdir(savepath):
       os.makedirs(savepath)
-    with h5py.File('./forecasts/autoregressive_predictions.h5', 'r') as f:
+    with h5py.File('./forecasts/autoregressive_predictions.nc', 'r') as f:
     
       u = f['predicted'][0,:,uch]
       v = f['predicted'][0,:,vch]
@@ -54,7 +59,7 @@ def make_frames_speed(uch, vch, scale, cmap, means, stds, date, field_name, save
 def make_frames(ch, scale, cmap, units, means, stds, date, field_name, savepath):
     if not os.path.isdir(savepath):
       os.makedirs(savepath)
-    with h5py.File('./forecasts/autoregressive_predictions.h5', 'r') as f:
+    with h5py.File('./forecasts/autoregressive_predictions.nc', 'r') as f:
 
       var = f['predicted'][0,:,ch]
 
@@ -72,32 +77,50 @@ date = sys.argv[1]
 means = np.load('./stats/global_means.npy')[:,0:26,:,:]
 stds = np.load('./stats/global_stds.npy')[:,0:26,:,:]
 
+#read the netcdf file
+with h5py.File('./forecasts/autoregressive_predictions.nc', 'r') as f:
+  channel_short_names = list(f.attrs['channel_short_names'][:])
+  channel_descriptions = list(f.attrs['channel_descriptions'][:])
+
+for i in range(len(channel_short_names)):
+  print("{} ---- {}".format(i, channel_descriptions[i]))
+
+
 frames_path = './images/sfc-speed/'
-make_frames_speed(0,1, (0,20), 'RdBu_r', means, stds, date, 'surface wind speed', savepath = frames_path)
+uidx = channel_short_names.index('u10')
+vidx = channel_short_names.index('v10')
+make_frames_speed(uidx, vidx, (0,20), 'RdBu_r', means, stds, date, 'surface wind speed', savepath = frames_path)
 make_gif(frames_path, frames_path + '/gifs/','sfc-speed.gif')
 
 frames_path = './images/250hpa-speed/'
-make_frames_speed(22,23, (0, 60), 'RdBu_r', means, stds, date, '250hPa wind speed', savepath = frames_path)
+uidx = channel_short_names.index('u250')
+vidx = channel_short_names.index('v250')
+make_frames_speed(uidx,vidx, (0, 60), 'RdBu_r', means, stds, date, '250hPa wind speed', savepath = frames_path)
 make_gif(frames_path, frames_path + '/gifs/','250-speed.gif')
 
 frames_path = './images/850hpa-speed/'
-make_frames_speed(9,10, (0, 30), 'RdBu_r', means, stds, date, '850hPa wind speed', savepath = frames_path)
+uidx = channel_short_names.index('u850')
+vidx = channel_short_names.index('v850')
+make_frames_speed(uidx,vidx, (0, 30), 'RdBu_r', means, stds, date, '850hPa wind speed', savepath = frames_path)
 make_gif(frames_path, frames_path + '/gifs/','850-speed.gif')
 
 frames_path = './images/tcwv/'
-make_frames(19, (0,65), 'viridis', "kg/m^2", means, stds, date, 'TCVW', frames_path)
+chidx = channel_short_names.index('tcwv')
+make_frames(chidx, (0,65), 'viridis', "kg/m^2", means, stds, date, 'TCVW', frames_path)
 if not os.path.isdir(frames_path + '/gifs/'):
   os.makedirs(frames_path + '/gifs/')
 make_gif(frames_path, frames_path + '/gifs/','tcwv.gif')
 
 frames_path = './images/t2m/'
-make_frames(2, (273-60,273+60), 'magma', "K", means, stds, date, '2m Temperature', frames_path)
+chidx = channel_short_names.index('t2m')
+make_frames(chidx, (273-60,273+60), 'magma', "K", means, stds, date, '2m Temperature', frames_path)
 if not os.path.isdir(frames_path + '/gifs/'):
   os.makedirs(frames_path + '/gifs/')
 make_gif(frames_path, frames_path + '/gifs/','t2m.gif')
 
 frames_path = './images/z500/'
-make_frames(14, (50000,58000), 'plasma', "m^2/s^2", means, stds, date, '500hPa geopotential height', frames_path)
+chidx = channel_short_names.index('z500')
+make_frames(chidx, (50000,58000), 'plasma', "m^2/s^2", means, stds, date, '500hPa geopotential height', frames_path)
 if not os.path.isdir(frames_path + '/gifs/'):
   os.makedirs(frames_path + '/gifs/')
 make_gif(frames_path, frames_path + '/gifs/','z500.gif')
