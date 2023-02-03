@@ -19,7 +19,6 @@ ray_results
 *.inv
 *.pl
 *.grb
-*.gif
 *inv
 *.ckpt
 *.npy
