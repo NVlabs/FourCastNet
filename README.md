@@ -17,9 +17,12 @@ FourCastNet is based on the vision transformer architecture with Adaptive Fourie
 
 ## Quick Links:
 
-[Pre-processed Training Data](https://app.globus.org/file-manager?origin_id=945b3c9e-0f8c-11ed-8daf-9f359c660fbd&origin_path=%2F~%2Fdata%2F)
+[Pre-processed Training Data - Globus Download Link](https://app.globus.org/file-manager?origin_id=945b3c9e-0f8c-11ed-8daf-9f359c660fbd&origin_path=%2F~%2Fdata%2F)
 
-[Trained Model Weights](https://app.globus.org/file-manager?origin_id=945b3c9e-0f8c-11ed-8daf-9f359c660fbd&origin_path=%2F~%2Fmodel_weights%2F)
+[Trained Model Weights - Globus Download Link](https://app.globus.org/file-manager?origin_id=945b3c9e-0f8c-11ed-8daf-9f359c660fbd&origin_path=%2F~%2Fmodel_weights%2F)
+
+[Trained Model Weights - Web Download Link](https://portal.nersc.gov/project/m4134/FCN_weights_v0/)
+
 
 ## Version Notes:
 
@@ -224,7 +227,7 @@ If you find this work useful, cite it using:
 ```
 @article{pathak2022fourcastnet,
   title={Fourcastnet: A global data-driven high-resolution weather model using adaptive fourier neural operators},
-  author={Pathak, Jaideep and Subramanian, Shashank and Harrington, Peter and Raja, Sanjeev and Chattopadhyay, Ashesh and Mardani, Morteza and Kurth, Thorsten and Hall, David and Li, Zongyi and Azizzadenesheli, Kamyar and others},
+  author={Pathak, Jaideep and Subramanian, Shashank and Harrington, Peter and Raja, Sanjeev and Chattopadhyay, Ashesh and Mardani, Morteza and Kurth, Thorsten and Hall, David and Li, Zongyi and Azizzadenesheli, Kamyar and Hassanzadeh, Pedram and Kashinath, Karthik and Anandkumar, Animashree},
   journal={arXiv preprint arXiv:2202.11214},
   year={2022}
 }
