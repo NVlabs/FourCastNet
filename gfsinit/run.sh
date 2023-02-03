@@ -85,6 +85,11 @@ DATESTR=$YEAR-$MONTH-$DAY-$FORECAST_HOUR
 source activate grib
 python grb2hdf5.py
 conda deactivate
+
+#add parent directory to python path
+
+export PYTHONPATH="${PYTHONPATH}:.."
+
 #
 #forecast
 python real_time_inference.py --yaml_config ../config/AFNO.yaml --config afno_backbone_26ch 

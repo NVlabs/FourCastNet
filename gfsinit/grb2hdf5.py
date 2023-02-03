@@ -57,6 +57,9 @@ def write_to_file(src, dest, src_name, src_index, dest_idx, mult_g=False):
 
 destdir = './h5files/'
 
+if not os.path.exists(destdir):
+    os.makedirs(destdir)
+
 dest = destdir + '/init.h5'
 
 with h5py.File(dest, 'w') as f:

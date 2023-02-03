@@ -243,6 +243,10 @@ if __name__ == '__main__':
     lat = lat[::-1]
     lon = np.arange(0,360,0.25) 
 
+    #check if forecast directory exists and create if not
+    if not os.path.isdir(params['forecast_dir']):
+      os.makedirs(params['forecast_dir'])
+
     #save predictions to netcdf
     if params.log_to_screen:
       logging.info("Saving files at {}".format(os.path.join(params['forecast_dir'], 'autoregressive_predictions' + autoregressive_inference_filetag + '.nc')))
