@@ -6,13 +6,7 @@ This code generates real-time AI forecasts using FourCastNet (FCN) by initializi
 
 ![TCWV](./images/tcwv/gifs/tcwv.gif)
 
-![t2m](./images/t2m/gifs/t2m.gif)
-
 ![z500](./images/z500/gifs/z500.gif)
-
-![850-speed](./images/850hpa-speed/gifs/850-speed.gif)
-
-![250-speed](./images/250hpa-speed/gifs/250-speed.gif)
 
 ## Instructions:
 

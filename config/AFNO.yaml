@@ -129,6 +129,7 @@ precip: &precip
   model_wind_path: '/pscratch/sd/s/shas1693/results/era5_wind/afno_backbone_finetune/0/training_checkpoints/best_ckpt.tar'
   precip_eps: !!float 1e-5
 
+## updated checkpoint (only supported for inference at the moment)
 afno_backbone_26ch: &backbone_26ch 
   <<: *backbone
   log_to_wandb: !!bool True
