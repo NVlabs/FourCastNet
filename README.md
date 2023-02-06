@@ -11,10 +11,6 @@ FourCastNet, short for Fourier Forecasting Neural Network, is a global data-driv
 
 FourCastNet is based on the vision transformer architecture with Adaptive Fourier Neural Operator (AFNO) attention proposed in Guibas-Mardani et al. \[[paper](https://openreview.net/pdf?id=EXHG-A3jlM)\], \[[code](https://github.com/NVlabs/AFNO-transformer)\].
 
-
-![Total Column of Water Vapor forecast using FourCastNet](assets/FourCastNet.gif)
-
-
 ## Quick Links:
 
 [Pre-processed Training Data - Globus Download Link](https://app.globus.org/file-manager?origin_id=945b3c9e-0f8c-11ed-8daf-9f359c660fbd&origin_path=%2F~%2Fdata%2F)
