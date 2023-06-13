@@ -18,7 +18,7 @@ cd FourCastNet
 python inference.py \
        --config=afno_backbone \
        --run_num=0 \
-       --data_path '/net/pr2/projects/plgrid/plggorheuro/fourcast/data/TODO.h5' \
+       --data_path '/net/pr2/projects/plgrid/plggorheuro/fourcast/data/{{= filename }}.h5' \
        --weights '/net/pr2/projects/plgrid/plggorheuro/fourcast/FCN_weights_v0/backbone.ckpt' \
        --override_dir '{{= rootpath }}/{{= datapath }}/'
 
