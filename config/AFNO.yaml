@@ -6,9 +6,9 @@ full_field: &FULL_FIELD
   scheduler: 'ReduceLROnPlateau'
   num_data_workers: 4
   dt: 1 # how many timesteps ahead the model will predict
-  n_history: 0 # how many previous timesteps to consider
+  n_history: 4 # how many previous timesteps to consider
   prediction_type: 'iterative'
-  prediction_length: 36 # applicable only if prediction_type == 'iterative'
+  prediction_length: 1 # applicable only if prediction_type == 'iterative'
   n_initial_conditions: 1 # applicable only if prediction_type == 'iterative'
   ics_type: "default" # -- this will always be default
   save_raw_forecasts: !!bool True
@@ -66,14 +66,14 @@ afno_backbone: &backbone
   # batch_size: 64
   # max_epochs: 150
   scheduler: 'CosineAnnealingLR'
-  in_channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-  out_channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  in_channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  out_channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
   # orography: !!bool False
   # orography_path: None 
   exp_dir: '/net/tscratch/people/plgorhid/fourcast-output'
   # train_data_path: ''
   # valid_data_path: ''
-  inf_data_path:   '/net/pr2/projects/plgrid/plggorheuro/fourcast/out_of_sample'
+  # inf_data_path:   '/net/pr2/projects/plgrid/plggorheuro/fourcast/out_of_sample'
   time_means_path:   '/net/pr2/projects/plgrid/plggorheuro/fourcast/stats_v0/time_means.npy'
   global_means_path: '/net/pr2/projects/plgrid/plggorheuro/fourcast/stats_v0/global_means.npy'
   global_stds_path:  '/net/pr2/projects/plgrid/plggorheuro/fourcast/stats_v0/global_stds.npy'

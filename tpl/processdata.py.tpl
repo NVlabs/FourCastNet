@@ -100,4 +100,4 @@ writetofile(src, dest, 18, 'r', 2) # r850
 
 src = f'{PATH}/{DATE}_sfc.nc'
 writetofile(src, dest, 19, 'tcwv') # tcwv
-writetofile(src, dest, 20, 'sst') # sst
+# writetofile(src, dest, 20, 'sst') # sst
