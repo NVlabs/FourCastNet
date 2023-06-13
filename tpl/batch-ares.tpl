@@ -14,15 +14,10 @@
 module load python
 
 cd {{= rootpath }}
-cd FourCastNet
-python inference.py \
+python src/inference.py \
+       --yaml_config '/net/pr2/projects/plgrid/plggorheuro/fourcast/src/config/AFNO.yaml' \
        --config=afno_backbone \
        --run_num=0 \
-       --data_path '/net/pr2/projects/plgrid/plggorheuro/fourcast/data/{{= filename }}.h5' \
-       --weights '/net/pr2/projects/plgrid/plggorheuro/fourcast/FCN_weights_v0/backbone.ckpt' \
-       --override_dir '{{= rootpath }}/{{= datapath }}/'
-
-cd ..
-cp {{= datapath }}/autoregressive_predictions_z500_vis.h5 bounce/prediction-{{= year }}-{{= month }}-{{= day }}.h5
-rm -rf {{= datapath }}
-rm -f out_of_sample/data.h5
+       --data_path '/net/pr2/projects/plgrid/plggorheuro/fourcast/data/test.h5' \
+       --weights '/net/pr2/projects/plgrid/plggorheuro/fourcast/model-weights/backbone.ckpt' \
+       --override_dir '/net/ascratch/people/plgorhid/fourcast-output/'
