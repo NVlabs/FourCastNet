@@ -197,7 +197,7 @@ def autoregressive_inference(params, ic, valid_data_full, model):
       for i in range(valid_data.shape[0]): 
         if i==0: #start of sequence
           first = valid_data[0:n_history+1]
-          future = valid_data[n_history+1]
+          # future = valid_data[n_history+1]
           for h in range(n_history+1):
             seq_real[h] = first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels] #extract history from 1st 
             seq_pred[h] = seq_real[h]
@@ -206,21 +206,20 @@ def autoregressive_inference(params, ic, valid_data_full, model):
           future_pred = model(first)
         else:
           if i < prediction_length-1:
-            future = valid_data[n_history+i+1]
+            # future = valid_data[n_history+i+1]
           future_pred = model(future_pred) #autoregressive step
 
         if i < prediction_length-1: #not on the last step
           seq_pred[n_history+i+1] = future_pred
-          seq_real[n_history+i+1] = future
+          # seq_real[n_history+i+1] = future_pred
       
     # Compute metrics 
     if params.log_to_screen:
           logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
 
-    seq_real = seq_real.cpu().numpy()
+    # seq_real = seq_real.cpu().numpy()
     seq_pred = seq_pred.cpu().numpy()
-    return (np.expand_dims(seq_real[n_history:], 0),
-            np.expand_dims(seq_pred[n_history:], 0))
+    return np.expand_dims(seq_pred[n_history:], 0)
 
 if __name__ == '__main__':
     # -- prepare argument parser
@@ -341,19 +340,19 @@ if __name__ == '__main__':
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
-      sr, sp = autoregressive_inference(params, ic, valid_data_full, model)
+      sp = autoregressive_inference(params, ic, valid_data_full, model)
       if i == 0:
-        seq_real = sr
+        # seq_real = sr
         seq_pred = sp
       else:
-        seq_real = np.concatenate((seq_real, sr), 0)
+        # seq_real = np.concatenate((seq_real, sr), 0)
         seq_pred = np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
 
-    prediction_length = seq_real[0].shape[0]
-    n_out_channels = seq_real[0].shape[1]
-    img_shape_x = seq_real[0].shape[2]
-    img_shape_y = seq_real[0].shape[3]
+    prediction_length = seq_pred[0].shape[0]
+    n_out_channels = seq_pred[0].shape[1]
+    img_shape_x = seq_pred[0].shape[2]
+    img_shape_y = seq_pred[0].shape[3]
 
     # save predictions and loss
     h5name = os.path.join(params['experiment_dir'], 'ens_autoregressive_predictions' + autoregressive_inference_filetag + '.h5')
