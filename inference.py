@@ -197,15 +197,19 @@ def autoregressive_inference(params, ic, valid_data_full, model):
       for i in range(valid_data.shape[0]): 
         if i==0: #start of sequence
           first = valid_data[0:n_history+1]
+          # print(first.shape)
           # future = valid_data[n_history+1]
-          for h in range(n_history+1):
-            seq_real[h] = first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels] #extract history from 1st 
-            seq_pred[h] = seq_real[h]
+          # for h in range(n_history+1):
+            # print(first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels].shape)
+            # print(seq_real[h].shape)
+            # seq_real[h] = first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels] #extract history from 1st 
+            # seq_pred[h] = seq_real[h]
+          seq_pred = first
           if params.perturb:
             first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
           future_pred = model(first)
         else:
-          if i < prediction_length-1:
+          # if i < prediction_length-1:
             # future = valid_data[n_history+i+1]
           future_pred = model(future_pred) #autoregressive step
 
@@ -214,12 +218,12 @@ def autoregressive_inference(params, ic, valid_data_full, model):
           # seq_real[n_history+i+1] = future_pred
       
     # Compute metrics 
-    if params.log_to_screen:
-          logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
+    # if params.log_to_screen:
+    #       logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
 
     # seq_real = seq_real.cpu().numpy()
-    seq_pred = seq_pred.cpu().numpy()
-    return np.expand_dims(seq_pred[n_history:], 0)
+    return seq_pred.cpu().numpy()
+    # return np.expand_dims(seq_pred[n_history:], 0)
 
 if __name__ == '__main__':
     # -- prepare argument parser
@@ -340,7 +344,7 @@ if __name__ == '__main__':
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
-      sp = autoregressive_inference(params, ic, valid_data_full, model)
+      sp = autoregressive_inference(params, ic, valid_data_full, model)[:,:,0:720]
       if i == 0:
         # seq_real = sr
         seq_pred = sp
@@ -349,10 +353,10 @@ if __name__ == '__main__':
         seq_pred = np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
 
-    prediction_length = seq_pred[0].shape[0]
-    n_out_channels = seq_pred[0].shape[1]
-    img_shape_x = seq_pred[0].shape[2]
-    img_shape_y = seq_pred[0].shape[3]
+    prediction_length = seq_pred.shape[0]
+    n_out_channels = seq_pred.shape[1]
+    img_shape_x = seq_pred.shape[2]
+    img_shape_y = seq_pred.shape[3]
 
     # save predictions and loss
     h5name = os.path.join(params['experiment_dir'], 'ens_autoregressive_predictions' + autoregressive_inference_filetag + '.h5')
@@ -368,7 +372,7 @@ if __name__ == '__main__':
       with h5py.File(h5name, 'a', driver='mpio', comm=MPI.COMM_WORLD) as f:
         if "fields" in f.keys():
             del f["fields"]
-        f.create_dataset("fields", data = seq_pred, shape = (n_ics, prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
+        f.create_dataset("fields", data = seq_pred, shape = (prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
         start = world_rank*ics_per_proc
         f["fields"][start:start+n_ics] = seq_pred
       dist.barrier()
@@ -378,5 +382,5 @@ if __name__ == '__main__':
       with h5py.File(h5name, 'a') as f:
         if "fields" in f.keys():
             del f["fields"]
-        f.create_dataset("fields", data = seq_pred, shape = (n_ics, prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
+        f.create_dataset("fields", data = seq_pred, shape = (prediction_length, n_out_channels, img_shape_x, img_shape_y), dtype = np.float32)
         f["fields"][...] = seq_pred
