@@ -66,7 +66,7 @@ from utils import logging_utils
 from utils.weighted_acc_rmse import weighted_rmse_torch_channels, weighted_acc_torch_channels
 logging_utils.config_logger()
 from utils.YParams import YParams
-from utils.data_loader_multifiles import get_data_loader
+# from utils.data_loader_multifiles import get_data_loader
 from networks.afnonet import AFNONet 
 import wandb
 import matplotlib.pyplot as plt
@@ -86,6 +86,7 @@ def gaussian_perturb(x, level=0.01, device=0):
     return (x + noise)
 
 def load_model(model, params, checkpoint_file):
+    # -- this function does not seem to use params at all?
     model.zero_grad()
     checkpoint = torch.load(checkpoint_file)
     try:
@@ -106,27 +107,15 @@ def downsample(x, scale=0.125):
 def setup(params):
     device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
 
-    # get data loader
-    # -- inf_data_path needs to be set more dynamically
-    # -- probably as an argument to this script
-    # -- since the dir is searched for a pattern and sorted by name
-    # -- then the first matching file is chosen
-    # -- i hate the way this is done
-
-    # -- why is the data loader even in here?
-    # -- looks like it is only ever used to set the shape, which seems like a terrible fucking way to to this xD
-    # -- and this only comes from the dataset, not the loader, the loder seems not to be used at fuck all
-
-    # _valid_data_loader, valid_dataset = get_data_loader(params, params.inf_data_path, dist.is_initialized(), train=False)
-
     # -- load the validation data
     file_path = params.data_path
+    if params.log_to_screen:
+        logging.info('loading data')
+        logging.info('  data from {}'.format(file_path))
     valid_data_full = h5py.File(file_path, 'r')['fields']
 
     params.img_shape_x = valid_data_full.shape[2]
     params.img_shape_y = valid_data_full.shape[3]
-    if params.log_to_screen:
-        logging.info('Loading trained model checkpoint from {}'.format(params['best_checkpoint_path']))
 
     out_channels = np.array(params.out_channels)
     params['N_in_channels'] = len(np.array(params.in_channels))
@@ -134,20 +123,15 @@ def setup(params):
     params.means = np.load(params.global_means_path)[0, out_channels] # needed to standardize wind data
     params.stds = np.load(params.global_stds_path)[0, out_channels]
 
-    # load the model
+    # -- load the model
     if params.nettype == 'afno':
         model = AFNONet(params).to(device) 
     else:
       raise Exception("not implemented")
     checkpoint_file  = params['best_checkpoint_path']
+    if params.log_to_screen:
+        logging.info('loading trained model checkpoint from {}'.format(checkpoint_file))
     model = load_model(model, params, checkpoint_file).to(device)
-
-    # -- load the validation data
-    # files_paths = glob.glob(params.inf_data_path + "/*.h5")
-    # files_paths.sort()
-    # if params.log_to_screen:
-    #     logging.info('Loading validation data')
-    #     logging.info('Validation data from {}'.format(file_path))
 
     return valid_data_full, model
 
@@ -171,59 +155,45 @@ def autoregressive_inference(params, ic, valid_data_full, model):
 
     n_pert = params.n_pert
 
-    # -- initialize memory for image sequences and RMSE/ACC
-    # valid_loss = torch.zeros((prediction_length, n_out_channels)).to(device, dtype=torch.float)
-    # acc = torch.zeros((prediction_length, n_out_channels)).to(device, dtype=torch.float)
-    seq_real = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x, img_shape_y)).to(device, dtype=torch.float)
+    # -- initialize memory for image sequence
     seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x, img_shape_y)).to(device, dtype=torch.float)
 
     valid_data = valid_data_full[ic:(ic+prediction_length*dt+n_history*dt):dt, in_channels, 0:720] # -- extract valid data from first year
     # -- standardize
     valid_data = (valid_data - means)/stds
     valid_data = torch.as_tensor(valid_data).to(device, dtype=torch.float)
-    # -- load time means
-    m = torch.as_tensor((np.load(params.time_means_path)[0][out_channels] - means)/stds)[:, 0:img_shape_x] # -- climatology
-    m = torch.unsqueeze(m, 0)
-    m = m.to(device)
-    std = torch.as_tensor(stds[:,0,0]).to(device, dtype=torch.float)
+    # load time means -- although, are they used anywhere later ?!
+    # -- they do not get passed do the model, although i would not be surprised if it uses them in some other roundabout way
+    # -- due to this stupid language not enforcing stuff
+    # -- or maybe they were used in the rms calculation and i just forgot to delete them
+    # m = torch.as_tensor((np.load(params.time_means_path)[0][out_channels] - means)/stds)[:, 0:img_shape_x] # -- climatology
+    # m = torch.unsqueeze(m, 0).to(device)
+#    # m = m.to(device)
+    # std = torch.as_tensor(stds[:,0,0]).to(device, dtype=torch.float)
 
-    #autoregressive inference
+    # -- autoregressive inference
     if params.log_to_screen:
-      logging.info('Begin autoregressive inference')
+      logging.info('begin autoregressive inference')
     
-    # for pert in range(n_pert):
-    #   logging.info('Running ensemble {}/{}'.format(pert+1, n_pert))
     with torch.no_grad():
-      for i in range(valid_data.shape[0]): 
-        if i==0: #start of sequence
+      print(valid_data.shape[0])
+      for i in range(valid_data.shape[0]): # -- what does this do? i have no idea
+        if i == 0: # start of sequence
           first = valid_data[0:n_history+1]
-          # print(first.shape)
-          # future = valid_data[n_history+1]
-          # for h in range(n_history+1):
-            # print(first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels].shape)
-            # print(seq_real[h].shape)
-            # seq_real[h] = first[h*n_in_channels : (h+1)*n_in_channels][0:n_out_channels] #extract history from 1st 
-            # seq_pred[h] = seq_real[h]
           seq_pred = first
           if params.perturb:
             first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
           future_pred = model(first)
         else:
-          # if i < prediction_length-1:
-            # future = valid_data[n_history+i+1]
-          future_pred = model(future_pred) #autoregressive step
+          future_pred = model(future_pred) # autoregressive step
 
-        if i < prediction_length-1: #not on the last step
+        if i < prediction_length-1: # not on the last step
           seq_pred[n_history+i+1] = future_pred
-          # seq_real[n_history+i+1] = future_pred
       
-    # Compute metrics 
     # if params.log_to_screen:
     #       logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
-
-    # seq_real = seq_real.cpu().numpy()
+    print(seq_pred.shape)
     return seq_pred.cpu().numpy()
-    # return np.expand_dims(seq_pred[n_history:], 0)
 
 if __name__ == '__main__':
     # -- prepare argument parser
@@ -302,25 +272,15 @@ if __name__ == '__main__':
     # -- this ics shenanigans is real weird and needs to be figured out
     n_ics = params['n_initial_conditions']
     # -- this will only ever be default in our case
+    # -- the following if basically overrides the parameter set above
     if params["ics_type"] == 'default':
         num_samples = n_samples_per_year-params.prediction_length
         stop = num_samples
         ics = np.arange(0, stop, DECORRELATION_TIME)
         n_ics = len(ics)
         logging.info("Inference for {} initial conditions".format(n_ics))
-    # elif params["ics_type"] == "datetime":
-    #     date_strings = params["date_strings"]
-    #     ics = []
-    #     for date in date_strings:
-    #         date_obj = datetime.strptime(date,'%Y-%m-%d %H:%M:%S') 
-    #         day_of_year = date_obj.timetuple().tm_yday - 1
-    #         hour_of_day = date_obj.timetuple().tm_hour
-    #         hours_since_jan_01_epoch = 24*day_of_year + hour_of_day
-    #         ics.append(int(hours_since_jan_01_epoch/6))
-    #     print(ics)
-    #     n_ics = len(ics)
 
-    # set filetag
+    # -- set filetag
     try:
         autoregressive_inference_filetag = params["inference_file_tag"]
     except:
@@ -328,12 +288,13 @@ if __name__ == '__main__':
     params.n_level = args.n_level
     # autoregressive_inference_filetag += "_" + str(params.n_level) + "_" + str(params.n_pert) + "ens_" + fld
     autoregressive_inference_filetag += "_test"
-    # get data and models
+
+    # -- get data and models
     valid_data_full, model = setup(params)
 
     # -- the following lines can be useful when we will want to parallelize splitting
     # run autoregressive inference for multiple initial conditions
-    # parallelize over initial conditions
+    # parallelize over initial conditions -- but does it really?
     if world_size > 1:
       tot_ics = len(ics)
       ics_per_proc = n_ics//world_size
@@ -341,16 +302,12 @@ if __name__ == '__main__':
       n_ics = len(ics)
       logging.info('Rank %d running ics %s'%(world_rank, str(ics)))
 
+    ics = [0] # -- to hell with ics, let me see what will happen
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
       sp = autoregressive_inference(params, ic, valid_data_full, model)[:,:,0:720]
-      if i == 0:
-        # seq_real = sr
-        seq_pred = sp
-      else:
-        # seq_real = np.concatenate((seq_real, sr), 0)
-        seq_pred = np.concatenate((seq_pred, sp), 0)
+      seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
 
     prediction_length = seq_pred.shape[0]
@@ -358,14 +315,14 @@ if __name__ == '__main__':
     img_shape_x = seq_pred.shape[2]
     img_shape_y = seq_pred.shape[3]
 
-    # save predictions and loss
+    # -- save prediction
     h5name = os.path.join(params['experiment_dir'], 'ens_autoregressive_predictions' + autoregressive_inference_filetag + '.h5')
 
     # -- it appears that the only thing which is parallelized is actualy just saving the results to the h5 file
     if dist.is_initialized(): 
       if params.log_to_screen:
-        logging.info("Saving files at {}".format(h5name))
-        logging.info("array shapes: %s"%str((tot_ics, prediction_length, n_out_channels)))
+        logging.info("saving files at {}".format(h5name))
+        logging.info("  array shapes: %s"%str((tot_ics, prediction_length, n_out_channels)))
 
       dist.barrier()
       from mpi4py import MPI
@@ -378,7 +335,7 @@ if __name__ == '__main__':
       dist.barrier()
     else:
       if params.log_to_screen:
-        logging.info("Saving files at {}".format(h5name))
+        logging.info("saving files at {}".format(h5name))
       with h5py.File(h5name, 'a') as f:
         if "fields" in f.keys():
             del f["fields"]
