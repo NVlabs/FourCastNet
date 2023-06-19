@@ -155,6 +155,10 @@ def autoregressive_inference(params, ic, valid_data_full, model):
 
     n_pert = params.n_pert
 
+    print("enter auroregpred")
+    print(f"nhistory: {n_history}")
+    print(f"pred len: {prediction_lenght}")
+
     # -- initialize memory for image sequence
     seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
 
@@ -180,8 +184,8 @@ def autoregressive_inference(params, ic, valid_data_full, model):
         first = valid_data
         # for h in range(first.shape[0]):
         #     seq_pred[h] = first[h]
-        if params.perturb:
-            first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
+        # if params.perturb:
+        #     first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
         future_pred = model(first)
         for j in range(4):
             print(f'first norm {torch.norm(first[j])}')
@@ -206,7 +210,8 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     # if params.log_to_screen:
     #       logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
     # print(f'seq_pred shape after {seq_pred.shape}')
-    seq_pred[n_history+1] = future_pred[0]
+    seq_pred[0:4] = first
+    seq_pred[4:8] = future_pred
     return seq_pred.cpu().numpy()
 
 if __name__ == '__main__':
@@ -309,20 +314,21 @@ if __name__ == '__main__':
     # -- the following lines can be useful when we will want to parallelize splitting
     # run autoregressive inference for multiple initial conditions
     # parallelize over initial conditions -- but does it really?
-    if world_size > 1:
-      tot_ics = len(ics)
-      ics_per_proc = n_ics//world_size
-      ics = ics[ics_per_proc*world_rank:ics_per_proc*(world_rank+1)] if world_rank < world_size - 1 else ics[(world_size - 1)*ics_per_proc:]
-      n_ics = len(ics)
-      logging.info('Rank %d running ics %s'%(world_rank, str(ics)))
+    # if world_size > 1:
+    #   tot_ics = len(ics)
+    #   ics_per_proc = n_ics//world_size
+    #   ics = ics[ics_per_proc*world_rank:ics_per_proc*(world_rank+1)] if world_rank < world_size - 1 else ics[(world_size - 1)*ics_per_proc:]
+    #   n_ics = len(ics)
+    #   logging.info('Rank %d running ics %s'%(world_rank, str(ics)))
 
-    ics = [0,1] # -- to hell with ics, let me see what will happen
+    ics = [0] # -- to hell with ics, let me see what will happen
     n_ics = len(ics)
-    seq_pred = valid_data_full[0:4,:,0:720]
+    # seq_pred = valid_data_full[0:4,:,0:720]
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
-      seq_pred = autoregressive_inference(params, ic, seq_pred, model)
+      seq_pred = autoregressive_inference(params, ic, valid_data_full[0:4,:,0:720], model)
+      print("===")
       print('seq pred norms:')
       for j in range(seq_pred.shape[0]):
         print(np.linalg.norm(seq_pred[j]))
@@ -332,6 +338,10 @@ if __name__ == '__main__':
       # seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
       params.n_history += 1
+
+    for j in range(8):
+        print(np.linalg.norm(seq_pred[j]-valid_data_full[j])
+
 
     prediction_length = seq_pred.shape[0]
     n_out_channels = seq_pred.shape[1]
