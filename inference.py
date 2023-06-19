@@ -156,9 +156,10 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     n_pert = params.n_pert
 
     # -- initialize memory for image sequence
-    seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x, img_shape_y)).to(device, dtype=torch.float)
+    seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
 
-    valid_data = valid_data_full[ic:(ic+prediction_length*dt+n_history*dt):dt, in_channels, 0:720] # -- extract valid data from first year
+    # valid_data = valid_data_full[ic:(ic+prediction_length*dt+n_history*dt):dt, in_channels, 0:720] # -- extract valid data from first year
+    valid_data = valid_data_full[-4:, in_channels, 0:720]
     # -- standardize
     valid_data = (valid_data - means)/stds
     valid_data = torch.as_tensor(valid_data).to(device, dtype=torch.float)
@@ -176,23 +177,36 @@ def autoregressive_inference(params, ic, valid_data_full, model):
       logging.info('begin autoregressive inference')
     
     with torch.no_grad():
-      print(valid_data.shape[0])
-      for i in range(valid_data.shape[0]): # -- what does this do? i have no idea
-        if i == 0: # start of sequence
-          first = valid_data[0:n_history+1]
-          seq_pred = first
-          if params.perturb:
+        first = valid_data
+        # for h in range(first.shape[0]):
+        #     seq_pred[h] = first[h]
+        if params.perturb:
             first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
-          future_pred = model(first)
-        else:
-          future_pred = model(future_pred) # autoregressive step
+        future_pred = model(first)
+        for j in range(4):
+            print(f'first norm {torch.norm(first[j])}')
+            print(f'future norm {torch.norm(future_pred[j])}')
+        # -- the model returns an array of the same shape as was provided
+        # -- but does it change anything inside? does it just always predict the same number of days as it is given?
 
-        if i < prediction_length-1: # not on the last step
-          seq_pred[n_history+i+1] = future_pred
+      # print(valid_data.shape[0])
+      # for i in range(valid_data.shape[0]): # -- what does this do? i have no idea
+      #   if i == 0: # start of sequence
+      #     first = valid_data[0:n_history+1]
+      #     seq_pred = first
+      #     if params.perturb:
+      #       first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
+      #     future_pred = model(first)
+      #   else:
+      #     future_pred = model(future_pred) # autoregressive step
+
+      #   if i < prediction_length-1: # not on the last step
+      #     seq_pred[n_history+i+1] = future_pred
       
     # if params.log_to_screen:
     #       logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
-    print(seq_pred.shape)
+    # print(f'seq_pred shape after {seq_pred.shape}')
+    seq_pred[n_history+1] = future_pred[0]
     return seq_pred.cpu().numpy()
 
 if __name__ == '__main__':
@@ -302,13 +316,22 @@ if __name__ == '__main__':
       n_ics = len(ics)
       logging.info('Rank %d running ics %s'%(world_rank, str(ics)))
 
-    ics = [0] # -- to hell with ics, let me see what will happen
+    ics = [0,1] # -- to hell with ics, let me see what will happen
+    n_ics = len(ics)
+    seq_pred = valid_data_full[0:4,:,0:720]
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
-      sp = autoregressive_inference(params, ic, valid_data_full, model)[:,:,0:720]
-      seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
+      seq_pred = autoregressive_inference(params, ic, seq_pred, model)
+      print('seq pred norms:')
+      for j in range(seq_pred.shape[0]):
+        print(np.linalg.norm(seq_pred[j]))
+      print(seq_pred.shape)
+      print('===')
+      # sp = autoregressive_inference(params, ic, valid_data_full, model)[:,:,0:720]
+      # seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
+      params.n_history += 1
 
     prediction_length = seq_pred.shape[0]
     n_out_channels = seq_pred.shape[1]
