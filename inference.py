@@ -160,7 +160,9 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     print(f"pred len: {prediction_length}")
 
     # -- initialize memory for image sequence
-    seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
+    seq_pred0 = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
+    seq_pred1 = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
+    seq_pred2 = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
 
     # valid_data = valid_data_full[ic:(ic+prediction_length*dt+n_history*dt):dt, in_channels, 0:720] # -- extract valid data from first year
     valid_data = valid_data_full[0:8, in_channels, 0:720]
@@ -169,14 +171,6 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     valid_data = torch.as_tensor(valid_data).to(device, dtype=torch.float)
     true_vals = valid_data
     valid_data = valid_data[0:4]
-    # load time means -- although, are they used anywhere later ?!
-    # -- they do not get passed do the model, although i would not be surprised if it uses them in some other roundabout way
-    # -- due to this stupid language not enforcing stuff
-    # -- or maybe they were used in the rms calculation and i just forgot to delete them
-    # m = torch.as_tensor((np.load(params.time_means_path)[0][out_channels] - means)/stds)[:, 0:img_shape_x] # -- climatology
-    # m = torch.unsqueeze(m, 0).to(device)
-#    # m = m.to(device)
-    # std = torch.as_tensor(stds[:,0,0]).to(device, dtype=torch.float)
 
     # -- autoregressive inference
     if params.log_to_screen:
@@ -188,10 +182,10 @@ def autoregressive_inference(params, ic, valid_data_full, model):
         #     seq_pred[h] = first[h]
         # if params.perturb:
         #     first = gaussian_perturb(first, level=params.n_level, device=device) # perturb the ic
-        future_pred = model(first)
-        for j in range(4):
-            print(f'first norm {torch.norm(first[j])}')
-            print(f'future norm {torch.norm(future_pred[j])}')
+        for i in range(4):
+            future_pred = model(first)
+            seq_pred0[4+i] = future_pred[-1]
+            first = future_pred
         # -- the model returns an array of the same shape as was provided
         # -- but does it change anything inside? does it just always predict the same number of days as it is given?
 
@@ -212,24 +206,41 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     # if params.log_to_screen:
     #       logging.info('Predicted timestep {} of {}. {}'.format(i, prediction_length, fld))
     # print(f'seq_pred shape after {seq_pred.shape}')
-    seq_pred[0:4] = first
-    seq_pred[4:8] = future_pred
 
-    print("===\nvalue comparison +4 to +1")
+    with torch.no_grad():
+        first = valid_data
+        for i in range(4):
+            future_pred = model(first)
+            seq_pred1[4+i] = future_pred[-1]
+            first = future_pred[-4:]
+
+    with torch.no_grad():
+        first = valid_data[3]
+        for i in range(4):
+            future_pred = model(first)
+            seq_pred2[4+i] = future_pred
+            first = future_pred
+
+    print("===\nvalue comparison for full history")
     for j in range(4):
-        print(torch.norm(seq_pred[j+4]-true_vals[j+1]))
+        print(torch.norm(seq_pred0[4+j]-true_vals[4+j]))
+    print("===")
+
+    print("===\nvalue comparison for lenght four history")
+    for j in range(8):
+        print(torch.norm(seq_pred1[4+j]-true_vals[4+j]))
+    print("===")
+
+    print("===\nvalue comparison for no history")
+    for j in range(8):
+        print(torch.norm(seq_pred2[4+j]-true_vals[4+j]))
     print("===")
 
     # -- this shows that probably the whole tensor is shifted by one time step
     # -- so puting in times t0 to tn-1 gives times t1 to tn
     # -- we should test whether using the historical data gives better or worse results than simply passing in one time
 
-    print("===\nvalue comparison +0 to +0")
-    for j in range(4):
-        print(torch.norm(seq_pred[j]-true_vals[j]))
-    print("===")
-
-    return seq_pred.cpu().numpy()
+    return seq_pred0.cpu().numpy()
 
 if __name__ == '__main__':
     # -- prepare argument parser
@@ -345,12 +356,6 @@ if __name__ == '__main__':
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
       seq_pred = autoregressive_inference(params, ic, valid_data_full[0:8,:,0:720], model)
-      print("===")
-      print('seq pred norms:')
-      for j in range(seq_pred.shape[0]):
-        print(np.linalg.norm(seq_pred[j]))
-      print(seq_pred.shape)
-      print('===')
       # sp = autoregressive_inference(params, ic, valid_data_full, model)[:,:,0:720]
       # seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
