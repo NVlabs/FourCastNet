@@ -8,7 +8,7 @@ full_field: &FULL_FIELD
   dt: 1 # how many timesteps ahead the model will predict
   n_history: 4 # how many previous timesteps to consider
   prediction_type: 'iterative'
-  prediction_length: 16 # applicable only if prediction_type == 'iterative'
+  prediction_length: 4 # applicable only if prediction_type == 'iterative'
   n_initial_conditions: 1 # applicable only if prediction_type == 'iterative'
   ics_type: "default" # -- this will always be default
   save_raw_forecasts: !!bool True

@@ -157,16 +157,18 @@ def autoregressive_inference(params, ic, valid_data_full, model):
 
     print("enter auroregpred")
     print(f"nhistory: {n_history}")
-    print(f"pred len: {prediction_lenght}")
+    print(f"pred len: {prediction_length}")
 
     # -- initialize memory for image sequence
     seq_pred = torch.zeros((prediction_length+n_history, n_in_channels, img_shape_x-1, img_shape_y)).to(device, dtype=torch.float)
 
     # valid_data = valid_data_full[ic:(ic+prediction_length*dt+n_history*dt):dt, in_channels, 0:720] # -- extract valid data from first year
-    valid_data = valid_data_full[-4:, in_channels, 0:720]
+    valid_data = valid_data_full[0:8, in_channels, 0:720]
     # -- standardize
     valid_data = (valid_data - means)/stds
     valid_data = torch.as_tensor(valid_data).to(device, dtype=torch.float)
+    true_vals = valid_data
+    valid_data = valid_data[0:4]
     # load time means -- although, are they used anywhere later ?!
     # -- they do not get passed do the model, although i would not be surprised if it uses them in some other roundabout way
     # -- due to this stupid language not enforcing stuff
@@ -212,6 +214,21 @@ def autoregressive_inference(params, ic, valid_data_full, model):
     # print(f'seq_pred shape after {seq_pred.shape}')
     seq_pred[0:4] = first
     seq_pred[4:8] = future_pred
+
+    print("===\nvalue comparison +4 to +1")
+    for j in range(4):
+        print(torch.norm(seq_pred[j+4]-true_vals[j+1]))
+    print("===")
+
+    # -- this shows that probably the whole tensor is shifted by one time step
+    # -- so puting in times t0 to tn-1 gives times t1 to tn
+    # -- we should test whether using the historical data gives better or worse results than simply passing in one time
+
+    print("===\nvalue comparison +0 to +0")
+    for j in range(4):
+        print(torch.norm(seq_pred[j]-true_vals[j]))
+    print("===")
+
     return seq_pred.cpu().numpy()
 
 if __name__ == '__main__':
@@ -327,7 +344,7 @@ if __name__ == '__main__':
     for i, ic in enumerate(ics):
       t0 = time.time()
       logging.info("Initial condition {} of {}".format(i+1, n_ics))
-      seq_pred = autoregressive_inference(params, ic, valid_data_full[0:4,:,0:720], model)
+      seq_pred = autoregressive_inference(params, ic, valid_data_full[0:8,:,0:720], model)
       print("===")
       print('seq pred norms:')
       for j in range(seq_pred.shape[0]):
@@ -338,9 +355,6 @@ if __name__ == '__main__':
       # seq_pred = sp if i == 0 else np.concatenate((seq_pred, sp), 0)
       logging.info("Time for inference for ic {} = {}".format(i, time.time() - t0))
       params.n_history += 1
-
-    for j in range(8):
-        print(np.linalg.norm(seq_pred[j]-valid_data_full[j])
 
 
     prediction_length = seq_pred.shape[0]
