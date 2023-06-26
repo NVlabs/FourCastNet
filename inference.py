@@ -183,13 +183,15 @@ def autoregressive_inference(params, valid_data_full, model):
                                                             step],
                                              level=params.n_level,
                                              device=device)
+                    # -- prediction based on the previous step seems to be the same as
+                    # -- prediction based on the entire history
                     future = model(
                         seq_pred[line +
-                                 pert * n_perturbations**(step)][0:n_history +
-                                                                 step])
+                                 pert * n_perturbations**(step)][n_history +
+                                                                 step - 1])
                     seq_pred[line +
                              pert * n_perturbations**(step)][n_history +
-                                                             step] = future[-1]
+                                                             step] = future
 
     return seq_pred.cpu().numpy()
 
