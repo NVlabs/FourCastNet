@@ -128,8 +128,8 @@ def setup(params):
     # params.img_shape_y = valid_data_full.shape[3]
 
     out_channels = np.array(params.out_channels)
-    # params['N_in_channels'] = len(np.array(params.in_channels))
-    # params['N_out_channels'] = len(out_channels)
+    params['N_in_channels'] = len(np.array(params.in_channels)) # necessary for the model
+    params['N_out_channels'] = len(out_channels) # necessary for the model
     params.means = np.load(params.global_means_path)[
         0, out_channels]  # needed to standardize wind data
     params.stds = np.load(params.global_stds_path)[0, out_channels]
@@ -187,8 +187,8 @@ def autoregressive_inference(params, valid_data_full, model):
                     # -- prediction based on the entire history
                     future = model(
                         seq_pred[line +
-                                 pert * n_perturbations**(step)][n_history +
-                                                                 step - 1])
+                                 pert * n_perturbations**(step)][(n_history +
+                                                                 step - 1):(n_history + step)])
                     seq_pred[line +
                              pert * n_perturbations**(step)][n_history +
                                                              step] = future
@@ -222,7 +222,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     params = YParams(os.path.abspath(args.yaml_config), args.config)
     params['n_pert'] = args.n_pert
-    params['perturb'] = args.perturb
+    params['n_level'] = args.n_level
+    # params['perturb'] = args.perturb
     params['data_path'] = args.data_path
 
     # -- prepare world size for multithreading
