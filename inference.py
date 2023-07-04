@@ -154,13 +154,11 @@ def autoregressive_inference(params, valid_data_full, model):
             for line in range(n_perturbations**step):
                 for pert in range(n_perturbations):
                     if not pert == 0:
-                        seq_pred[line + pert * n_perturbations**
-                                 (step)][0:n_history +
-                                         step] = gaussian_perturb(
-                                             seq_pred[line][0:n_history +
-                                                            step],
-                                             level=params.n_level,
-                                             device=device)
+                        seq_pred[line + pert * n_perturbations**(step)][
+                            n_history + step - 1] = gaussian_perturb(
+                                seq_pred[line][n_history + step - 1],
+                                level=params.n_level,
+                                device=device)
                     # -- prediction based on the previous step seems to be the same as
                     # -- prediction based on the entire history
                     future = model(
