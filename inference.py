@@ -51,39 +51,19 @@ import numpy as np
 import argparse
 import sys
 
-# from numpy.core.numeric import False_
 import h5py
 import torch
-# import torchvision
-# from torchvision.utils import save_image
-# import torch.nn as nn
-# import torch.cuda.amp as amp
 import torch.distributed as dist
 from collections import OrderedDict
-# from torch.nn.parallel import DistributedDataParallel
 import logging
 from utils import logging_utils
 # from utils.weighted_acc_rmse import weighted_rmse_torch_channels, weighted_acc_torch_channels
 
 from utils.YParams import YParams
-# from utils.data_loader_multifiles import get_data_loader
 from networks.afnonet import AFNONet
-# import wandb
-# import matplotlib.pyplot as plt
-# import glob
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../')
 logging_utils.config_logger()
-
-# -- i don't really understand this part, seems like this should be in the config
-# fld = "z500"  # diff flds have diff decor times and hence differnt ics
-# if fld == "z500" or fld == "2m_temperature" or fld == "t850":
-#     # 9 days (36) for z500, 2 (8 steps) days for u10, v10
-#     DECORRELATION_TIME = 36
-# else:
-#     # 9 days (36) for z500, 2 (8 steps) days for u10, v10
-#     DECORRELATION_TIME = 8
-# idxes = {"u10": 0, "z500": 14, "tp": 0}
 
 
 def gaussian_perturb(x, level=0.01, device=0):
@@ -124,12 +104,10 @@ def setup(params):
         logging.info('  data from {}'.format(file_path))
     valid_data_full = h5py.File(file_path, 'r')['fields']
 
-    # params.img_shape_x = valid_data_full.shape[2]
-    # params.img_shape_y = valid_data_full.shape[3]
-
     out_channels = np.array(params.out_channels)
-    params['N_in_channels'] = len(np.array(params.in_channels)) # necessary for the model
-    params['N_out_channels'] = len(out_channels) # necessary for the model
+    params['N_in_channels'] = len(np.array(
+        params.in_channels))  # necessary for the model
+    params['N_out_channels'] = len(out_channels)  # necessary for the model
     params.means = np.load(params.global_means_path)[
         0, out_channels]  # needed to standardize wind data
     params.stds = np.load(params.global_stds_path)[0, out_channels]
@@ -186,9 +164,8 @@ def autoregressive_inference(params, valid_data_full, model):
                     # -- prediction based on the previous step seems to be the same as
                     # -- prediction based on the entire history
                     future = model(
-                        seq_pred[line +
-                                 pert * n_perturbations**(step)][(n_history +
-                                                                 step - 1):(n_history + step)])
+                        seq_pred[line + pert * n_perturbations**(step)][(
+                            n_history + step - 1):(n_history + step)])
                     seq_pred[line +
                              pert * n_perturbations**(step)][n_history +
                                                              step] = future
@@ -223,7 +200,6 @@ if __name__ == '__main__':
     params = YParams(os.path.abspath(args.yaml_config), args.config)
     params['n_pert'] = args.n_pert
     params['n_level'] = args.n_level
-    # params['perturb'] = args.perturb
     params['data_path'] = args.data_path
 
     # -- prepare world size for multithreading
@@ -260,10 +236,6 @@ if __name__ == '__main__':
     params['resuming'] = False
     params['local_rank'] = local_rank
 
-    # this will be the wandb name
-    # params['name'] = args.config + '_' + str(args.run_num)
-    # params['group'] = args.config
-
     if world_rank == 0:
         logging_utils.log_to_file(logger_name=None,
                                   log_filename=os.path.join(
@@ -273,11 +245,6 @@ if __name__ == '__main__':
 
     params['log_to_wandb'] = (world_rank == 0) and params['log_to_wandb']
     params['log_to_screen'] = (world_rank == 0) and params['log_to_screen']
-
-    # if fld == "z500" or fld == "t850":
-    #     n_samples_per_year = 1336
-    # else:
-    #     n_samples_per_year = 1460
 
     # -- set filetag
     try:
