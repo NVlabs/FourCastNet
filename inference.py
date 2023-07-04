@@ -127,46 +127,32 @@ def setup(params):
     return valid_data_full, model
 
 
-def autoregressive_inference(params, valid_data_full, model):
+def standardize(data, params):
+    return (data[:, np.array(params.in_channels), 0:720] -
+            params.means) / params.stds
+
+
+def autoregressive_inference(params, data, model):
     device = torch.cuda.current_device() if torch.cuda.is_available(
     ) else 'cpu'
 
     # -- initialize global variables
     n_perturbations = int(params.n_pert)
-    prediction_length = int(params.prediction_length)
 
-    # -- standardize
-    valid_data = valid_data_full[:, np.array(params.in_channels), 0:720]
-    valid_data = (valid_data - params.means) / params.stds
-    valid_data = torch.as_tensor(valid_data).to(device, dtype=torch.float)
-    n_history = valid_data.shape[0]
+    data = torch.as_tensor(data).to(device, dtype=torch.float)
 
     # -- initialize memory for image sequence
-    seq_pred = torch.zeros(
-        (n_perturbations**prediction_length, prediction_length + n_history,
-         valid_data.shape[1], valid_data.shape[2],
-         valid_data.shape[3])).to(device, dtype=torch.float)
+    seq_pred = torch.zeros((data.shape[0] * 3, 1, data.shape[2], data.shape[3],
+                            data.shape[4])).to(device, dtype=torch.float)
 
     # -- autoregressive inference
     with torch.no_grad():
-        seq_pred[0][0:n_history] = valid_data
-        for step in range(prediction_length):
-            for line in range(n_perturbations**step):
-                for pert in range(n_perturbations):
-                    if not pert == 0:
-                        seq_pred[line + pert * n_perturbations**(step)][
-                            n_history + step - 1] = gaussian_perturb(
-                                seq_pred[line][n_history + step - 1],
-                                level=params.n_level,
-                                device=device)
-                    # -- prediction based on the previous step seems to be the same as
-                    # -- prediction based on the entire history
-                    future = model(
-                        seq_pred[line + pert * n_perturbations**(step)][(
-                            n_history + step - 1):(n_history + step)])
-                    seq_pred[line +
-                             pert * n_perturbations**(step)][n_history +
-                                                             step] = future
+        for line in range(data.shape[0]):
+            for pert in range(n_perturbations):
+                history = data[line] if pert == 0 else gaussian_perturb(
+                    data[line], level=params.n_level, device=device)
+                future = model(history)
+                seq_pred[line + pert * data.shape[0]] = future
 
     return seq_pred.cpu().numpy()
 
@@ -254,29 +240,32 @@ if __name__ == '__main__':
     # -- get data and models
     valid_data_full, model = setup(params)
 
-    t0 = time.time()
+    # -- standardize input data
+    standardized_data = standardize(valid_data_full[0:4], params)
+
+    # -- actual prediction happens here
     logging.info("begining stochastic inference")
-    seq_pred = autoregressive_inference(params, valid_data_full[0:4, :, 0:720],
-                                        model)
-    logging.info(f"time for inference = {time.time() - t0}")
+    prediction_length = int(params.prediction_length)
 
-    prediction_length = seq_pred.shape[0]
-    n_out_channels = seq_pred.shape[1]
-    img_shape_x = seq_pred.shape[2]
-    img_shape_y = seq_pred.shape[3]
+    seq_pred = np.expand_dims(standardized_data, 0)
+    for step in range(prediction_length):
+        t0 = time.time()
+        seq_pred = autoregressive_inference(params, standardized_data, model)
+        logging.info(
+            f"time for inference at step {step + 1} = {time.time() - t0}")
 
-    # -- save prediction
-    h5name = os.path.join(
-        params['experiment_dir'], 'stochastic_autoregressive_predictions' +
-        autoregressive_inference_filetag + '.h5')
+        # -- save prediction
+        h5name = os.path.join(
+            params['experiment_dir'], 'stochastic_autoregressive_predictions' +
+            autoregressive_inference_filetag + f'step_{step + 1}' + '.h5')
 
-    if params.log_to_screen:
-        logging.info("saving files at {}".format(h5name))
-    with h5py.File(h5name, 'a') as f:
-        if "fields" in f.keys():
-            del f["fields"]
-        f.create_dataset("fields",
-                         data=seq_pred,
-                         shape=seq_pred.shape,
-                         dtype=np.float32)
-        f["fields"][...] = seq_pred
+        if params.log_to_screen:
+            logging.info("saving files at {}".format(h5name))
+        with h5py.File(h5name, 'a') as f:
+            if "fields" in f.keys():
+                del f["fields"]
+            f.create_dataset("fields",
+                             data=seq_pred,
+                             shape=seq_pred.shape,
+                             dtype=np.float32)
+            f["fields"][...] = seq_pred
