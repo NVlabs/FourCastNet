@@ -260,13 +260,29 @@ if __name__ == '__main__':
             params['experiment_dir'], 'stochastic_autoregressive_predictions' +
             autoregressive_inference_filetag + f'_step_{step + 1}' + '.h5')
 
-        if params.log_to_screen:
-            logging.info("saving files at {}".format(h5name))
-        with h5py.File(h5name, 'a') as f:
-            if "fields" in f.keys():
-                del f["fields"]
-            f.create_dataset("fields",
-                             data=seq_pred,
-                             shape=seq_pred.shape,
-                             dtype=np.float32)
-            f["fields"][...] = seq_pred
+        if dist.is_initialized():
+            if params.log_to_screen:
+                logging.info("saving files at {}".format(h5name))
+            dist.barrier()
+            from mpi4py import MPI
+            with h5py.File(h5name, 'a', driver='mpio',
+                           comm=MPI.COMM_WORLD) as f:
+                if "fields" in f.keys():
+                    del f["fields"]
+                f.create_dataset("fields",
+                                 data=seq_pred,
+                                 shape=seq_pred.shape,
+                                 dtype=np.float32)
+                f["fields"][...] = seq_pred
+            dist.barrier()
+        else:
+            if params.log_to_screen:
+                logging.info("saving files at {}".format(h5name))
+            with h5py.File(h5name, 'a') as f:
+                if "fields" in f.keys():
+                    del f["fields"]
+                f.create_dataset("fields",
+                                 data=seq_pred,
+                                 shape=seq_pred.shape,
+                                 dtype=np.float32)
+                f["fields"][...] = seq_pred
