@@ -259,8 +259,8 @@ if __name__ == '__main__':
 
     # -- save prediction
     h5name = os.path.join(
-        params['experiment_dir'], 'stochastic_autoregressive_predictions' +
-        autoregressive_inference_filetag + '_ensamble' + '.h5')
+        params['experiment_dir'], 'ensamble_autoregressive_predictions' +
+        autoregressive_inference_filetag + '.h5')
 
     if params.log_to_screen:
         logging.info("saving files at {}".format(h5name))
