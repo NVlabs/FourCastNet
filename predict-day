@@ -1,0 +1,63 @@
+#!/usr/bin/env lua
+
+-- necessary packages
+package.path = "/net/people/plgrid/plgorhid/lua/?.lua;" .. package.path
+liluat = require "liluat"
+
+-- global variables
+local rootpath = "/net/pr2/projects/plgrid/plggorheuro/fourcast"
+local datapath = "tmp"
+local machine = "ares"
+
+local function render_template (template_path, output_path, variables)
+  local template_file = io.open(rootpath .. "/src/tpl/" .. template_path .. ".tpl", "r")
+  local template_compiled = liluat.compile(template_file:read('a'))
+  template_file:close()
+
+  local output_file = io.open(rootpath .. "/" .. datapath .. "/" .. output_path, "w")
+  output_file:write(liluat.render(template_compiled, variables))
+  output_file:close()
+end
+
+local function full_run (variables)
+  -- prepare env
+  print("preparing env")
+  os.execute("cd " .. rootpath)
+  os.execute("mkdir " .. datapath)
+  
+  -- compile scripts
+  print("rendering scripts")
+  render_template("getdata_pl.py", "getdata_pl.py", variables)
+  render_template("getdata_sfc.py", "getdata_sfc.py", variables)
+  render_template("processdata.py", "processdata.py", variables)
+  render_template("batch-" .. machine, "batch", variables)
+
+  -- download data
+  print("downloading data")
+  os.execute("python " .. datapath .. "/getdata_pl.py &>/dev/null")
+  os.execute("python " .. datapath .. "/getdata_sfc.py &>/dev/null")
+
+  print("processing data")
+  os.execute("python " .. datapath .. "/processdata.py &>/dev/null")
+  os.execute("cp " .. datapath .. "/" .. variables.filename .. ".h5 " .. rootpath .. "/data/test.h5") -- this should be automatically saved there
+
+  -- batch script to slurm
+  os.execute("sbatch --wait " .. datapath .. "/batch")
+
+  -- save output and clear temps
+  os.execute("rm -rf " .. datapath)
+  os.execute("printf '\a'")
+end
+
+local function prepare_variables ()
+  local variables = {}
+  variables.rootpath = rootpath
+  variables.datapath = datapath
+  variables.filename = "data"
+  variables.year = arg[1]
+  variables.month = arg[2]
+  variables.day = arg[3]
+  return variables
+end
+
+full_run(prepare_variables())
