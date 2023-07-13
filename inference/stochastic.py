@@ -46,19 +46,18 @@
 # Filip Øskar Łanecki - Jagiellonian University, Cyfronet ACK
 
 import os
-import time
-import numpy as np
-import argparse
 import sys
+import time
+import logging
+import argparse
 
 import h5py
+import numpy as np
 import torch
 import torch.distributed as dist
-from collections import OrderedDict
-import logging
-from utils import logging_utils
-# from utils.weighted_acc_rmse import weighted_rmse_torch_channels, weighted_acc_torch_channels
 
+from collections import OrderedDict
+from utils import logging_utils
 from utils.YParams import YParams
 from networks.afnonet import AFNONet
 
@@ -81,7 +80,7 @@ def load_model(model, checkpoint_file):
             if name != 'ged':
                 new_state_dict[name] = val
         model.load_state_dict(new_state_dict)
-    except:
+    except:  # don't know what can fail here, since python does not say
         model.load_state_dict(checkpoint['model_state'])
     model.eval()
     return model
@@ -165,26 +164,15 @@ if __name__ == '__main__':
                         default='./config/AFNO.yaml',
                         type=str)
     parser.add_argument("--config", default='full_field', type=str)
-    parser.add_argument("--override_dir",
-                        default=None,
-                        type=str,
-                        help='path to store inference outputs')
-    parser.add_argument("--weights",
-                        default=None,
-                        type=str,
-                        help='path to model weights')
     parser.add_argument("--data_path",
                         default=None,
                         type=str,
                         help='path to data used for prediction')
-    parser.add_argument("--n_pert", default=3, type=int)
-    parser.add_argument("--n_level", default=0.3, type=float)
+    parser.add_argument("--prediction_length", default=1, type=int)
 
     # -- parse config file and script args
     args = parser.parse_args()
     params = YParams(os.path.abspath(args.yaml_config), args.config)
-    params['n_pert'] = args.n_pert
-    params['n_level'] = args.n_level
     params['data_path'] = args.data_path
 
     # -- prepare world size for multithreading
@@ -208,16 +196,14 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     # set up directory
-    assert args.override_dir is not None, 'must set --override_dir argument'
-    assert args.weights is not None, 'must set --weights argument'
-    expDir = args.override_dir
+    expDir = params['data_dir_path']
 
     if world_rank == 0:
         if not os.path.isdir(expDir):
             os.makedirs(expDir)
 
     params['experiment_dir'] = os.path.abspath(expDir)
-    params['best_checkpoint_path'] = args.weights
+    params['best_checkpoint_path'] = params['weights']
     params['resuming'] = False
     params['local_rank'] = local_rank
 
@@ -226,17 +212,16 @@ if __name__ == '__main__':
                                   log_filename=os.path.join(
                                       expDir, 'inference_out.log'))
         logging_utils.log_versions()
-        params.log()
+        # params.log()
 
     params['log_to_wandb'] = (world_rank == 0) and params['log_to_wandb']
     params['log_to_screen'] = (world_rank == 0) and params['log_to_screen']
 
     # -- set filetag
     try:
-        autoregressive_inference_filetag = params["inference_file_tag"]
-    except:
-        autoregressive_inference_filetag = ""
-    autoregressive_inference_filetag += "_test"
+        filetag = params["inference_file_tag"]
+    except KeyError:
+        filetag = ""
 
     # -- get data and models
     valid_data_full, model = setup(params)
@@ -246,7 +231,7 @@ if __name__ == '__main__':
 
     # -- actual prediction happens here
     logging.info("begining stochastic inference")
-    prediction_length = int(params.prediction_length)
+    prediction_length = int(args.prediction_length)
 
     seq_pred = np.expand_dims(standardized_data[-1:], 0)
     for step in range(prediction_length):
@@ -255,34 +240,33 @@ if __name__ == '__main__':
         logging.info(
             f"time for inference at step {step + 1} = {time.time() - t0}")
 
-        # -- save prediction
-        h5name = os.path.join(
-            params['experiment_dir'], 'stochastic_autoregressive_predictions' +
-            autoregressive_inference_filetag + f'_step_{step + 1}' + '.h5')
+    # -- save prediction
+    h5name = os.path.join(
+        params['experiment_dir'],
+        'stochastic_autoregressive_prediction' + filetag + '' + '.h5')
 
-        if dist.is_initialized():
-            if params.log_to_screen:
-                logging.info("saving files at {}".format(h5name))
-            dist.barrier()
-            from mpi4py import MPI
-            with h5py.File(h5name, 'a', driver='mpio',
-                           comm=MPI.COMM_WORLD) as f:
-                if "fields" in f.keys():
-                    del f["fields"]
-                f.create_dataset("fields",
-                                 data=seq_pred,
-                                 shape=seq_pred.shape,
-                                 dtype=np.float32)
-                f["fields"][...] = seq_pred
-            dist.barrier()
-        else:
-            if params.log_to_screen:
-                logging.info("saving files at {}".format(h5name))
-            with h5py.File(h5name, 'a') as f:
-                if "fields" in f.keys():
-                    del f["fields"]
-                f.create_dataset("fields",
-                                 data=seq_pred,
-                                 shape=seq_pred.shape,
-                                 dtype=np.float32)
-                f["fields"][...] = seq_pred
+    if dist.is_initialized():
+        if params.log_to_screen:
+            logging.info("saving files at {}".format(h5name))
+        dist.barrier()
+        from mpi4py import MPI
+        with h5py.File(h5name, 'a', driver='mpio', comm=MPI.COMM_WORLD) as f:
+            if "fields" in f.keys():
+                del f["fields"]
+            f.create_dataset("fields",
+                             data=seq_pred,
+                             shape=seq_pred.shape,
+                             dtype=np.float32)
+            f["fields"][...] = seq_pred
+        dist.barrier()
+    else:
+        if params.log_to_screen:
+            logging.info("saving files at {}".format(h5name))
+        with h5py.File(h5name, 'a') as f:
+            if "fields" in f.keys():
+                del f["fields"]
+            f.create_dataset("fields",
+                             data=seq_pred,
+                             shape=seq_pred.shape,
+                             dtype=np.float32)
+            f["fields"][...] = seq_pred
