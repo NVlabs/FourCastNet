@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#SBATCH --job-name=fourcast
+#SBATCH --partition=plgrid-gpu-a100
+#SBATCH --time=0:12:00
+#SBATCH --account=plgimgwprzybycien-gpu-a100
+#SBATCH --mem=108G
+#SBATCH -N 1
+#SBATCH --gres=gpu:1
+#SBATCH --output=/net/tscratch/people/plgorhid/fourcast-tmp/fourcast-slurm.out
+#SBATCH --error=/net/tscratch/people/plgorhid/fourcast-tmp/fourcast-slurm.err
+
+module load Python
+
+cd $PLG_GROUPS_STORAGE/plggorheuro/fourcast/src
+
+export PYTHONPATH=$PLG_GROUPS_STORAGE/plggorheuro/fourcast/src:$PYTHONPATH
+
+python inference/stochastic.py \
+	--yaml_config '/net/pr2/projects/plgrid/plggorheuro/fourcast/src/config/AFNO.yaml' \
+        --config 'afno_backbone' \
+        --data_path '/net/pr2/projects/plgrid/plggorheuro/fourcast/data/2018.h5' \
+	--prediction_length 8

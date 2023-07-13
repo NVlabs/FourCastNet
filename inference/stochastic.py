@@ -203,7 +203,7 @@ if __name__ == '__main__':
             os.makedirs(expDir)
 
     params['experiment_dir'] = os.path.abspath(expDir)
-    params['best_checkpoint_path'] = params['weights']
+    params['best_checkpoint_path'] = params['weights_path']
     params['resuming'] = False
     params['local_rank'] = local_rank
 
