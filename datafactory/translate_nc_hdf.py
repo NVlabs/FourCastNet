@@ -1,13 +1,9 @@
 # copy downloaded data from nc to hdf
 
-# instructions:
-# set NIMGTOT correctly
-
 import os
 import argparse
 
 import h5py
-from mpi4py import MPI
 from netCDF4 import Dataset as DS
 
 
@@ -15,24 +11,18 @@ def writetofile(src, dest, channel_idx, variable_name, src_idx=0, frmt='nc'):
     if not os.path.isfile(src):
         return "did not find source file"
 
-    BATCH = 2**4
-    RANK = MPI.COMM_WORLD.rank
-    NPROC = MPI.COMM_WORLD.size
-    NIMGTOT = 4  # src_shape[0]
-
-    NIMG = NIMGTOT // NPROC
-    BASE = RANK * NIMG
-    END = (RANK + 1) * NIMG if RANK < NPROC - 1 else NIMGTOT
-    idx = BASE
-
     fsrc = DS(src, 'r', format="NETCDF4").variables[variable_name]
     with h5py.File(dest, 'a') as f:
         if 'fields' not in f:
             f.create_dataset('fields',
-                             shape=(NIMGTOT, 20, fsrc.shape[1], fsrc.shape[2]),
+                             shape=(fsrc.shape[0], 20, fsrc.shape[1],
+                                    fsrc.shape[2]),
                              dtype='<f4')
-    fdest = h5py.File(dest, 'a', driver='mpio', comm=MPI.COMM_WORLD)
+    fdest = h5py.File(dest, 'a')
 
+    BATCH = 2**4
+    END = fsrc.shape[0]
+    idx = 0
     while idx < END:
         if END - idx < BATCH:
             if len(fsrc.shape) == 4:

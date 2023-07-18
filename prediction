@@ -4,12 +4,11 @@
 package.path = '/net/people/plgrid/plgorhid/lua/?.lua;' .. package.path
 local argparse = require 'argparse'
 local sluarm = require 'sluarm'
-local lfs = require 'lfs'
 
 -- globals
 
 ROOTPATH = '/net/pr2/projects/plgrid/plggorheuro/fourcast'
-TEMPPATH = '/net/people/plgrid/plgorhid/fourcast-tmp'
+TEMPPATH = '/net/tscratch/people/plgorhid/fourcast-tmp'
 
 -- arguments
 
@@ -48,29 +47,17 @@ local prepare_slurm_params = function ()
 end
 
 local download_data = function (slurm_params)
-
   local script = ''
   script = script .. 'module load Python' .. '\n'
+
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_pl.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_sfc.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/translate_nc_hdf.py' .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n'
 
-  -- local download_script = assert(io.open(TEMPPATH .. '/download_script'))
-  -- download_script:write('#!/bin/bash' .. '\n\n')
-  -- download_script:write('module load Python' .. '\n')
-
-  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/get_pl.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
-  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/get_sfc.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
-  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/translate_nc_hdf.py' .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
-  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n')
-  -- download_script:close()
-
-  -- os.execute('chmod +x ' .. TEMPPATH .. '/download_script')
-  local params = slurm_params:shallow_copy()
+  local params = table.shallow_copy(slurm_params)
   params.job_name = 'fourcast-download-data'
-  local jid = sluarm.srun('bash -c "' .. script .. '"', params)
-  assert(sluarm.status(jid) == 'COMPLETED', 'data download not complete')
+  sluarm.srun('bash -c "' .. script .. '"', params)
 
   return TEMPPATH .. '/data_standardized.h5'
 end
@@ -84,6 +71,8 @@ end
 -- main
 
 lfs.rmdir(TEMPPATH)
+os.execute('rm -rf ' .. TEMPPATH)
+os.execute('mkdir ' .. TEMPPATH)
 lfs.mkdir(TEMPPATH)
 local slurm_params = prepare_slurm_params()
 local datapath = download_data(slurm_params)
