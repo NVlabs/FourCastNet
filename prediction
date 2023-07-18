@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 
 -- load packages
-package.path = '/net/people/plgrid/plgorhid/lua/?.lua;' .. package.path
+package.path = '/net/pr2/projects/plgrid/plggorheuro/lua/?.lua;' .. package.path
 local argparse = require 'argparse'
 local sluarm = require 'sluarm'
 
@@ -49,11 +49,12 @@ end
 local download_data = function (slurm_params)
   local script = ''
   script = script .. 'module load Python' .. '\n'
+  script = script .. 'export PYTHONPATH=' .. ROOTPATH ..'/src:$PYTHONPATH' .. '\n'
 
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_pl.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_sfc.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
   script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/translate_nc_hdf.py' .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
-  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n'
+  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml_config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n'
 
   local params = table.shallow_copy(slurm_params)
   params.job_name = 'fourcast-download-data'
@@ -64,16 +65,14 @@ end
 
 local test_data = function ()
   os.execute('module load Python')
-  os.execute('python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. ROOTPATH .. '/data/2018.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n')
+  os.execute('python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml_config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. ROOTPATH .. '/data/2018.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n')
   return TEMPPATH .. '/data_standardized.h5'
 end
 
 -- main
 
-lfs.rmdir(TEMPPATH)
 os.execute('rm -rf ' .. TEMPPATH)
 os.execute('mkdir ' .. TEMPPATH)
-lfs.mkdir(TEMPPATH)
 local slurm_params = prepare_slurm_params()
 local datapath = download_data(slurm_params)
 -- local datapath = test_data()

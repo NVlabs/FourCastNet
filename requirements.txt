@@ -4,6 +4,8 @@ torchvision
 matplotlib
 
 mpi4py
+cdsapi
+netCDF4
 h5py
 wandb
 ruamel.yamls
