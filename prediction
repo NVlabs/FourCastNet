@@ -1,0 +1,91 @@
+#!/usr/bin/env lua
+
+-- load packages
+package.path = '/net/people/plgrid/plgorhid/lua/?.lua;' .. package.path
+local argparse = require 'argparse'
+local sluarm = require 'sluarm'
+local lfs = require 'lfs'
+
+-- globals
+
+ROOTPATH = '/net/pr2/projects/plgrid/plggorheuro/fourcast'
+TEMPPATH = '/net/people/plgrid/plgorhid/fourcast-tmp'
+
+-- arguments
+
+local parser = argparse()
+   :name "prediction-script"
+   :description "run stochastic prediction using the fourcast model."
+
+parser:argument("day", "starting point for prediction: day.")
+parser:argument("month", "starting point for prediction: month.")
+parser:argument("year", "starting point for prediction: year.")
+
+local args = parser:parse()
+
+-- helper functions
+
+table.shallow_copy = function (t)
+  local u = {}
+  for k,v in pairs(t) do u[k] = v end
+  return u
+end
+
+local prepare_slurm_params = function ()
+  local params = {}
+
+  params.partition = 'plgrid-gpu-a100'
+  params.account = 'plgimgwprzybycien-gpu-a100'
+  params.gres = 'gpu:1'
+  params.mem = '42G'
+  params.job_name = 'fourcast'
+  params.time = '0:12:00'
+  params.nodes = '1'
+  params.output = TEMPPATH .. '/slurm.out'
+  params.error = TEMPPATH .. '/slurm.err'
+
+  return params
+end
+
+local download_data = function (slurm_params)
+
+  local script = ''
+  script = script .. 'module load Python' .. '\n'
+  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_pl.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
+  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/get_sfc.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
+  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/translate_nc_hdf.py' .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n'
+  script = script .. 'python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n'
+
+  -- local download_script = assert(io.open(TEMPPATH .. '/download_script'))
+  -- download_script:write('#!/bin/bash' .. '\n\n')
+  -- download_script:write('module load Python' .. '\n')
+
+  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/get_pl.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
+  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/get_sfc.py' .. ' --day ' .. args.day .. ' --month ' .. args.month .. ' --year ' .. args.year .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
+  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/translate_nc_hdf.py' .. ' --datapath ' .. TEMPPATH .. ' --filename data_raw' .. '\n')
+  -- download_script:write('python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. TEMPPATH .. '/data_raw.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n')
+  -- download_script:close()
+
+  -- os.execute('chmod +x ' .. TEMPPATH .. '/download_script')
+  local params = slurm_params:shallow_copy()
+  params.job_name = 'fourcast-download-data'
+  local jid = sluarm.srun('bash -c "' .. script .. '"', params)
+  assert(sluarm.status(jid) == 'COMPLETED', 'data download not complete')
+
+  return TEMPPATH .. '/data_standardized.h5'
+end
+
+local test_data = function ()
+  os.execute('module load Python')
+  os.execute('python ' .. ROOTPATH .. '/src/datafactory/standardize.py' .. ' --yaml-config ' .. ROOTPATH .. '/src/config/AFNO.yaml' .. ' --config afno_backbone' .. ' --data_path_input ' .. ROOTPATH .. '/data/2018.h5' .. ' --data_path_output ' .. TEMPPATH .. '/data_standardized.h5' .. '\n')
+  return TEMPPATH .. '/data_standardized.h5'
+end
+
+-- main
+
+lfs.rmdir(TEMPPATH)
+lfs.mkdir(TEMPPATH)
+local slurm_params = prepare_slurm_params()
+local datapath = download_data(slurm_params)
+-- local datapath = test_data()
+
