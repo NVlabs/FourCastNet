@@ -103,13 +103,10 @@ def setup(params):
         logging.info('  data from {}'.format(file_path))
     valid_data_full = h5py.File(file_path, 'r')['fields']
 
-    out_channels = np.array(params.out_channels)
     params['N_in_channels'] = len(np.array(
         params.in_channels))  # necessary for the model
-    params['N_out_channels'] = len(out_channels)  # necessary for the model
-    params.means = np.load(params.global_means_path)[
-        0, out_channels]  # needed to standardize wind data
-    params.stds = np.load(params.global_stds_path)[0, out_channels]
+    params['N_out_channels'] = len(np.array(
+        params.out_channels))  # necessary for the model
 
     # -- load the model
     if params.nettype == 'afno':
@@ -124,11 +121,6 @@ def setup(params):
     model = load_model(model, checkpoint_file).to(device)
 
     return valid_data_full, model
-
-
-def standardize(data, params):
-    return (data[:, np.array(params.in_channels), 0:720] -
-            params.means) / params.stds
 
 
 def autoregressive_inference(params, data, model):
@@ -164,10 +156,18 @@ if __name__ == '__main__':
                         default='./config/AFNO.yaml',
                         type=str)
     parser.add_argument("--config", default='full_field', type=str)
-    parser.add_argument("--data_path",
+    parser.add_argument("--data_path_input",
                         default=None,
                         type=str,
                         help='path to data used for prediction')
+    parser.add_argument("--output_dir",
+                        default=None,
+                        type=str,
+                        help='directory to store output data')
+    parser.add_argument("--suffix",
+                        default="",
+                        type=str,
+                        help='directory to store output data')
     parser.add_argument("--prediction_length", default=1, type=int)
 
     # -- parse config file and script args
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     # set up directory
-    expDir = params['data_dir_path']
+    expDir = args.output_dir
 
     if world_rank == 0:
         if not os.path.isdir(expDir):
@@ -217,23 +217,14 @@ if __name__ == '__main__':
     params['log_to_wandb'] = (world_rank == 0) and params['log_to_wandb']
     params['log_to_screen'] = (world_rank == 0) and params['log_to_screen']
 
-    # -- set filetag
-    try:
-        filetag = params["inference_file_tag"]
-    except KeyError:
-        filetag = ""
-
     # -- get data and models
-    valid_data_full, model = setup(params)
-
-    # -- standardize input data
-    standardized_data = standardize(valid_data_full[0:4], params)
+    data, model = setup(params)
 
     # -- actual prediction happens here
     logging.info("begining stochastic inference")
     prediction_length = int(args.prediction_length)
 
-    seq_pred = np.expand_dims(standardized_data[-1:], 0)
+    seq_pred = np.expand_dims(data[-1:], 0)
     for step in range(prediction_length):
         t0 = time.time()
         seq_pred = autoregressive_inference(params, seq_pred, model)
@@ -243,7 +234,7 @@ if __name__ == '__main__':
     # -- save prediction
     h5name = os.path.join(
         params['experiment_dir'],
-        'stochastic_autoregressive_prediction' + filetag + '' + '.h5')
+        'stochastic_autoregressive_prediction' + args.suffix + '.h5')
 
     if dist.is_initialized():
         if params.log_to_screen:
