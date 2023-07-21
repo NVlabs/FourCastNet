@@ -224,7 +224,7 @@ if __name__ == '__main__':
     logging.info("begining stochastic inference")
     prediction_length = int(args.prediction_length)
 
-    seq_pred = np.expand_dims(data[-1:], 0)
+    seq_pred = data
     for step in range(prediction_length):
         t0 = time.time()
         seq_pred = autoregressive_inference(params, seq_pred, model)

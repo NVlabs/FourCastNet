@@ -200,7 +200,7 @@ local batch_run = function (datapath, length, suffix, slurm_params)
 
   local script_path = TEMP_PATH .. '/script_' .. suffix
   local f = assert(io.open(script_path, 'w'))
-  assert(f:write(script))
+  f:write(script)
   f:close()
   return sluarm.sbatch(script_path, params)
 end
@@ -208,7 +208,7 @@ end
 local run_prediction_on_splits = function (splits_datapaths, length, slurm_params)
   local jids = {}
   for index, datapath in ipairs(splits_datapaths) do
-    table.insert(jids, assert(tonumber(batch_run(datapath, length, 'split-' .. index, slurm_params))))
+    table.insert(jids, tonumber(batch_run(datapath, length, 'split-' .. index, slurm_params)))
   end
 
   while true do
@@ -217,15 +217,15 @@ local run_prediction_on_splits = function (splits_datapaths, length, slurm_param
       break
     end
 
+    os.execute('sleep ' .. WAIT_TIME)
+
     for index, jid in ipairs(jids) do
       local stat = sluarm.status(jid)
       if stat == 'COMPLETED' or stat == 'FAILED' then
-        jids:remove(index)
+        table.remove(jids,index)
         break
       end
     end
-
-    os.execute('sleep ' .. WAIT_TIME)
   end
 end
 
@@ -325,39 +325,40 @@ end
 
 -- ## prepare data
 do
-print('downloading data')
--- local datapath = download_data(slurm_params)
-local datapath = test_data()
+  print('downloading data')
+  -- local datapath = download_data(slurm_params)
+  local datapath = test_data()
 
--- ## run predictions
-print('running prediction...')
-local length_of_first_run = math.min(args.length, max_run_length)
+  -- ## run predictions
+  print('running prediction...')
+  local length_of_first_run = math.min(args.length, max_run_length)
 
-print('beginning initial run')
-datapath = first_run(datapath, length_of_first_run, slurm_params)
+  print('beginning initial run')
+  datapath = first_run(datapath, length_of_first_run, slurm_params)
 
-do
-local number_of_middle_runs, length_of_middle_run = divide_workload(args.length, stp_target)
-if length_of_first_run == args.length then
-  goto save
+  do
+    local number_of_middle_runs, length_of_middle_run = divide_workload(args.length, stp_target)
+    if length_of_first_run == args.length then
+      goto save
+    end
+
+    for _=1, number_of_middle_runs do
+      print("script not ready for worload of this lenght")
+      goto cleanup
+      -- datapath = middle_run(datapath, length_of_middle_run, slurm_params)
+    end
+  end
+
+  print('beginning final run')
+  datapath = last_run(datapath, stp_target - length_of_first_run, slurm_params)
+
+  -- ## cleanup
+  ::save::
+  print('saving prediction')
+  local output_filename = PREDICTION_PREFIX .. '_' .. stringify_date(args.year, args.month, args.day, args.hour) .. '+' .. args.length .. '.h5'
+  os.execute('mv ' .. datapath .. ' ' .. ROOT_PATH .. '/bounce/' .. output_filename)
 end
 
-for _=1, number_of_middle_runs do
-  print("script not ready for worload of this lenght")
-  goto cleanup
-  -- datapath = middle_run(datapath, length_of_middle_run, slurm_params)
-end
-end
-
-print('beginning final run')
-datapath = last_run(datapath, stp_target - length_of_first_run, slurm_params)
-
--- ## cleanup
-::save::
-print('saving prediction')
-local output_filename = PREDICTION_PREFIX .. '_' .. stringify_date(args.year, args.month, args.day, args.hour) .. '+' .. args.length .. '.h5'
-os.execute('mv ' .. datapath .. ' ' .. ROOT_PATH .. '/bounce/' .. output_filename)
-end
 ::cleanup::
 print('cleaning up')
 -- os.execute('rm -rf ' .. TEMP_PATH)

@@ -26,6 +26,7 @@ stds = np.load(params.global_stds_path)[0, out_channels]
 
 # -- standardize input data
 data = (data[:, np.array(params.in_channels), 0:720] - means) / stds
+data = np.expand_dims(data[-1:], 0)
 
 # -- save standardized data
 with h5py.File(args.data_path_output, 'a') as f:
