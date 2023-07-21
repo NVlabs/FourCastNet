@@ -31,9 +31,7 @@ data = (data[:, np.array(params.in_channels), 0:720] - means) / stds
 with h5py.File(args.data_path_output, 'a') as f:
     if HDF_DATASET in f.keys():
         del f[HDF_DATASET]
-    # are we not saving the data twice here ??
     f.create_dataset(HDF_DATASET,
                      data=data,
                      shape=data.shape,
                      dtype=np.float32)
-    f[HDF_DATASET][...] = data
