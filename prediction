@@ -285,7 +285,7 @@ local first_run = function (datapath, length, slurm_params)
                       config='afno_backbone',
                       data_path_input=datapath,
                       output_dir=TEMP_PATH .. '/',
-                      suffix='',
+                      -- suffix='',
                       prediction_length=length }
   script = script .. 'python ' .. 'inference/stochastic.py' .. stringify_params(py_params) .. '\n'
 
