@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # -- parse config file and script args
     args = parser.parse_args()
     params = YParams(os.path.abspath(args.yaml_config), args.config)
-    params['data_path'] = args.data_path
+    params['data_path'] = args.data_path_input
 
     # -- prepare world size for multithreading
     params['world_size'] = int(
@@ -248,7 +248,6 @@ if __name__ == '__main__':
                              data=seq_pred,
                              shape=seq_pred.shape,
                              dtype=np.float32)
-            f["fields"][...] = seq_pred
         dist.barrier()
     else:
         if params.log_to_screen:
@@ -260,4 +259,3 @@ if __name__ == '__main__':
                              data=seq_pred,
                              shape=seq_pred.shape,
                              dtype=np.float32)
-            f["fields"][...] = seq_pred

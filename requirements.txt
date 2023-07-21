@@ -8,7 +8,7 @@ cdsapi
 netCDF4
 h5py
 wandb
-ruamel.yamls
+ruamel.yaml
 tqdm
 timm
 einops
