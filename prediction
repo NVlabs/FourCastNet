@@ -67,7 +67,7 @@ end
 
 table.length = function (t)
   local length = 0
-  for key,value in ipairs(t) do
+  for _,_ in ipairs(t) do
     length = length + 1
    end
    return length
@@ -285,7 +285,7 @@ local first_run = function (datapath, length, slurm_params)
                       config='afno_backbone',
                       data_path_input=datapath,
                       output_dir=TEMP_PATH .. '/',
-                      suffix='_base',
+                      suffix='',
                       prediction_length=length }
   script = script .. 'python ' .. 'inference/stochastic.py' .. stringify_params(py_params) .. '\n'
 
@@ -365,7 +365,7 @@ do
   ::save::
   print('saving prediction')
   local output_filename = PREDICTION_PREFIX .. '_' .. stringify_date(args.year, args.month, args.day, args.hour) .. '+' .. args.length .. '.h5'
-  os.execute('mv ' .. datapath .. ' ' .. ROOT_PATH .. '/bounce/' .. output_filename)
+  os.execute('cp ' .. datapath .. ' ' .. ROOT_PATH .. '/bounce/' .. output_filename)
 end
 
 ::cleanup::
