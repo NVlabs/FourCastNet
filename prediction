@@ -292,7 +292,7 @@ local first_run = function (datapath, length, slurm_params)
   local params = table.shallow_copy(slurm_params)
   params.job_name = 'fourcast-initial-run'
   sluarm.srun('bash -c "' .. script .. '"', params)
-  return TEMP_PATH .. '/' .. PREDICTION_PREFIX .. '_base.h5'
+  return TEMP_PATH .. '/' .. PREDICTION_PREFIX .. '.h5'
 end
 
 -- ## middle passes
