@@ -216,7 +216,7 @@ end
 local run_prediction_on_splits = function (splits_datapaths, length, slurm_params)
   local jids = {}
   for index, datapath in ipairs(splits_datapaths) do
-    local jid = batch_run(datapath, length, 'split-' .. index, slurm_params)
+    local jid = batch_run(datapath, length, 'split_' .. index, slurm_params)
     table.insert(jids, tonumber(jid))
   end
 
