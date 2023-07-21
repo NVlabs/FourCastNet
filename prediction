@@ -35,7 +35,7 @@ parser:argument("length", "amount of time steps to predict."):convert(tonumber)
 parser:option("-h --hour", "starting point for prediction: hour.", "00:00")
 parser:option("-d --day", "starting point for prediction: day.", "1")
 parser:option("-m --month", "starting point for prediction: month.", "1")
-parser:option("-y --year", "starting point for prediction: year.", "2020")
+parser:option("-y --year", "starting point for prediction: year.", "2018")
 parser:option("-t --target", "amount of desired ensamble threads at prediction time.", "1000")
 
 local args = parser:parse()
@@ -63,6 +63,14 @@ table.shallow_copy = function (t)
   local u = {}
   for k,v in pairs(t) do u[k] = v end
   return u
+end
+
+table.length = function (t)
+  local length = 0
+  for key,value in ipairs(t) do
+    length = length + 1
+   end
+   return length
 end
 
 local max_prediction_length = function (perturbations)
@@ -116,7 +124,7 @@ local stringify_date = function (year, month, day, hour)
     return lowest_distance > 0 and lowest_key .. romdist or romdist .. lowest_key
   end
 
-  return year .. roman(month) .. day .. 'h' .. hour:strsub(1,2)
+  return year .. roman(month) .. day .. 'h' .. string.sub(hour, 1,2)
 end
 
 local steps_to_reach_target = function (target, perturbations)
@@ -208,11 +216,12 @@ end
 local run_prediction_on_splits = function (splits_datapaths, length, slurm_params)
   local jids = {}
   for index, datapath in ipairs(splits_datapaths) do
-    table.insert(jids, tonumber(batch_run(datapath, length, 'split-' .. index, slurm_params)))
+    local jid = batch_run(datapath, length, 'split-' .. index, slurm_params)
+    table.insert(jids, tonumber(jid))
   end
 
   while true do
-    local n = #jids
+    local n = table.length(jids)
     if n == 0 then
       break
     end
@@ -222,7 +231,7 @@ local run_prediction_on_splits = function (splits_datapaths, length, slurm_param
     for index, jid in ipairs(jids) do
       local stat = sluarm.status(jid)
       if stat == 'COMPLETED' or stat == 'FAILED' then
-        table.remove(jids,index)
+        table.remove(jids, index)
         break
       end
     end
