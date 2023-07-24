@@ -13,8 +13,8 @@ TEMP_PATH = '/net/tscratch/people/plgorhid/fourcast-tmp'
 YAML_CONFIG_PATH = '/src/config/AFNO.yaml'
 PREDICTION_PREFIX = 'stochastic_autoregressive_prediction' -- this should match the name in the inference script
 
-
-MAX_GPU_MEM = 36 * (2^10)^3
+MAX_GPU_MEM_G = 36
+MAX_GPU_MEM = math.floor(36 * (2^10)^3)
 SINGLE_MAP_SIZE = 20 * 720 * 1440 * 4
 PYTHON_PREAMBLE = 'module load Python > /dev/null' .. '\n' .. 'export PYTHONPATH=' .. ROOT_PATH ..'/src:$PYTHONPATH' .. '\n'
 
@@ -46,7 +46,7 @@ local prepare_slurm_params = function ()
   params.partition = 'plgrid-gpu-a100'
   params.account = 'plgimgwprzybycien-gpu-a100'
   params.gres = 'gpu:1'
-  params.mem = '42G'
+  params.mem = MAX_GPU_MEM_G .. 'G'
   params.job_name = 'fourcast'
   params.time = '0:12:00'
   params.nodes = '1'
@@ -268,6 +268,7 @@ local collect_dataset = function(splits_datapaths, nof_splits, slurm_params)
 
   local params = table.shallow_copy(slurm_params)
   params.job_name = 'fourcast-data-collect'
+  params.mem = math.floor(MAX_GPU_MEM_G * nof_splits*2) .. 'G'
   sluarm.srun('bash -c "' .. script .. '"', params)
   return splits_datapaths.prefix .. '.h5'
 end

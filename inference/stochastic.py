@@ -101,7 +101,8 @@ def setup(params):
     if params.log_to_screen:
         logging.info('loading data')
         logging.info('  data from {}'.format(file_path))
-    valid_data_full = h5py.File(file_path, 'r')['fields']
+    with h5py.File(file_path, 'r') as f:
+        data = torch.as_tensor(np.array(f['fields'])).to(device, dtype=torch.float)
 
     params['N_in_channels'] = len(np.array(
         params.in_channels))  # necessary for the model
@@ -120,17 +121,12 @@ def setup(params):
             'loading trained model checkpoint from {}'.format(checkpoint_file))
     model = load_model(model, checkpoint_file).to(device)
 
-    return valid_data_full, model
+    return data, model, device
 
 
-def autoregressive_inference(params, data, model):
-    device = torch.cuda.current_device() if torch.cuda.is_available(
-    ) else 'cpu'
-
+def autoregressive_inference(params, data, model, device):
     # -- initialize global variables
     n_perturbations = int(params.n_pert)
-
-    data = torch.as_tensor(data).to(device, dtype=torch.float)
 
     # -- initialize memory for image sequence
     seq_pred = torch.zeros(
@@ -146,7 +142,7 @@ def autoregressive_inference(params, data, model):
                 future = model(history)
                 seq_pred[line + pert * data.shape[0]] = future
 
-    return seq_pred.cpu().numpy()
+    return seq_pred
 
 
 if __name__ == '__main__':
@@ -218,7 +214,7 @@ if __name__ == '__main__':
     params['log_to_screen'] = (world_rank == 0) and params['log_to_screen']
 
     # -- get data and models
-    data, model = setup(params)
+    data, model, device = setup(params)
 
     # -- actual prediction happens here
     logging.info("begining stochastic inference")
@@ -227,9 +223,10 @@ if __name__ == '__main__':
     seq_pred = data
     for step in range(prediction_length):
         t0 = time.time()
-        seq_pred = autoregressive_inference(params, seq_pred, model)
+        seq_pred = autoregressive_inference(params, seq_pred, model, device)
         logging.info(
             f"time for inference at step {step + 1} = {time.time() - t0}")
+    seq_pred = seq_pred.cpu().numpy()
 
     # -- save prediction
     h5name = os.path.join(
