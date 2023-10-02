@@ -1,7 +1,10 @@
 numpy
+scipy
 torch
 torchvision
 matplotlib
+
+gudhi
 
 mpi4py
 cdsapi
