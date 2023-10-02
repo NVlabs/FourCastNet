@@ -102,7 +102,8 @@ def setup(params):
         logging.info('loading data')
         logging.info('  data from {}'.format(file_path))
     with h5py.File(file_path, 'r') as f:
-        data = torch.as_tensor(np.array(f['fields'])).to(device, dtype=torch.float)
+        data = torch.as_tensor(np.array(f['fields'])).to(device,
+                                                         dtype=torch.float)
 
     params['N_in_channels'] = len(np.array(
         params.in_channels))  # necessary for the model

@@ -136,6 +136,7 @@ end
 
 -- ## data preparation
 
+-- download new data from online database
 local download_data = function (slurm_params)
   print('downloading and preparing data')
 
@@ -167,6 +168,7 @@ local download_data = function (slurm_params)
   return py_params.data_path_output
 end
 
+--[[ load test data from disk
 local test_data = function ()
   print('preparing test data')
 
@@ -186,6 +188,7 @@ local test_data = function ()
   os.execute('python ' .. ROOT_PATH .. '/src/datafactory/standardize.py' .. stringify_params(py_params) .. '\n')
   return TEMP_PATH .. '/data_standardized.h5'
 end
+--]]
 
 -- ## flow helper functions
 
@@ -257,6 +260,22 @@ local split_dataset = function(datapath, nof_splits, slurm_params)
   return splits_datapaths
 end
 
+local clusterize_dataset = function(splits_datapaths, nof_splits, slurm_params)
+  local script = ''
+  script = script .. PYTHON_PREAMBLE
+
+  local py_params = { data_path_prefix=splits_datapaths.prefix,
+                      data_path_output=splits_datapaths.prefix .. '.h5',
+                      splits=nof_splits }
+  script = script .. 'python ' .. 'datafactory/clusterize.py' .. stringify_params(py_params) .. '\n'
+
+  local params = table.shallow_copy(slurm_params)
+  params.job_name = 'fourcast-data-clusterize'
+  params.mem = math.floor(MAX_GPU_MEM_G * nof_splits*2) .. 'G'
+  sluarm.srun('bash -c "' .. script .. '"', params)
+  return splits_datapaths.prefix .. '.h5'
+end
+
 local collect_dataset = function(splits_datapaths, nof_splits, slurm_params)
   local script = ''
   script = script .. PYTHON_PREAMBLE
@@ -301,7 +320,7 @@ end
 local middle_run = function(datapath, length, slurm_params)
   local splits_datapaths = split_dataset(datapath, math.floor(PERTURBATIONS^length), slurm_params)
   run_prediction_on_splits(splits_datapaths, length, slurm_params)
-  -- TODO datapath = collect and clusterize splits
+  return clusterize_dataset(splits_datapaths, math.floor(PERTURBATIONS^length), slurm_params)
 end
 
 -- ## last pass
@@ -336,8 +355,8 @@ end
 -- ## prepare data
 do
   print('downloading data')
-  -- local datapath = download_data(slurm_params)
-  local datapath = test_data()
+  local datapath = download_data(slurm_params)
+  -- local datapath = test_data()
 
   -- ## run predictions
   print('running prediction...')
@@ -353,9 +372,7 @@ do
     end
 
     for _=1, number_of_middle_runs do
-      print("script not ready for worload of this lenght")
-      goto cleanup
-      -- datapath = middle_run(datapath, length_of_middle_run, slurm_params)
+      datapath = middle_run(datapath, length_of_middle_run, slurm_params)
     end
   end
 
