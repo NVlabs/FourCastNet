@@ -24,7 +24,9 @@ datas = [
 # -- prepare for symplexing
 target = datas[0].shape[0]
 data_safe = np.concatenate(datas, axis=0)
-data = data_safe.reshape((data_safe.shape[0], data_safe.shape[2]*data_safe.shape[3]*data_safe.shape[4]))
+data = data_safe.reshape(
+    (data_safe.shape[0],
+     data_safe.shape[2] * data_safe.shape[3] * data_safe.shape[4]))
 
 distance_matrix = cdist(data, data)
 minimum = np.min(distance_matrix[np.nonzero(distance_matrix)])
@@ -43,7 +45,7 @@ while True:
     else:
         target_distance += step
 
-## -- clusterize
+# -- clusterize
 vertices = np.arange(data.shape[0])
 components = []
 for vertex in vertices:
@@ -61,7 +63,10 @@ for vertex in vertices:
     if not anycomp:
         components.append([vertex])
 
-data = np.array([np.array([data_safe[j] for j in component]).sum(axis=0) / len(component) for component in components])
+data = np.array([
+    np.array([data_safe[j] for j in component]).sum(axis=0) / len(component)
+    for component in components
+])
 
 with h5py.File(args.data_path_output, 'a') as f:
     if HDF_DATASET in f.keys():
